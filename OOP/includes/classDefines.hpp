@@ -92,6 +92,9 @@
 } \
 
 
+#define INSTANCE_NAME(name, id) (format["%1_instance_%2", name, id])
+
+
 #define NEW_OBJINSTANCE(name) NEW_OBJINSTANCE_GLOBAL(name, false)
 #define SPAWN_NEW_OBJINSTANCE(name) SPAWN_NEW_OBJINSTANCE_GLOBAL(name, false)
 
@@ -107,7 +110,8 @@
 #define GET_SELFVAR(name) ([_self, name, nil] call OOP_OBJ_CLASS_fnc_getVar)
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
-#define IVAR(instance, name, def) private name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
+#define PR_IVAR(instance, name, def) private name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
+#define IVAR(instance, name, def) name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
 
 
 #define SAVE_VARS _oopSaveVars = true;

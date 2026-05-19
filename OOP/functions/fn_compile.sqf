@@ -107,7 +107,7 @@ OOP_OBJ_CLASS_fnc_newInstance = {
         _classIds = +(_obj getVariable [_classInstancesIdsVarName, []]);
         _classSet = _classIds isNotEqualTo [];
         _instanceId = (_classIds param [((count _classIds) -1) max 0, 0]) + 1;
-        _instanceName = format["%1_instance_%2", _classRegistryName, _instanceId];
+        _instanceName = INSTANCE_NAME(_classRegistryName, _instanceId);
         [_obj, _classInstancesIdsVarName, _instanceId, true, _global, _global] call OOP_fnc_pushBackNet;
     };
     [_obj, "OOP_OBJ_CLASS_objClassInstancesClasses", _instanceName, true, _global, _global] call OOP_fnc_pushBackNet;
