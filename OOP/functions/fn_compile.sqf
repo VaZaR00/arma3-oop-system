@@ -255,7 +255,7 @@ OOP_fnc_validateFieldType = {
 
 OOP_fnc_classRegistryName = {
 	params["_className"];
-    private _prefix = if (isNil "_ADDON_PREFX") then {SPREFX} else {_ADDON_PREFX};
+    private _prefix = VAR_PREFIX;
 	_prefix = if (_prefix == "") then {_prefix} else {_prefix + "_"};
     format["OOP_OBJ_CLASS_%1%2", _prefix, _className];
 };
@@ -293,4 +293,16 @@ OOP_fnc_pushBackGlobal = {
 
 OOP_fnc_pushBackNet = {
     _this call EFL_fnc_pushBackNet;
+};
+
+OOP_OBJ_CLASS_fnc_setVar = {
+    params["_self", "_name", ["_val", nil], ["_target", false], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+
+    _self setVariable [VAR_NAME, _NIL(_val), _target];
+};
+
+OOP_OBJ_CLASS_fnc_getVar = {
+    params["_self", "_name", ["_def", nil], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+
+    _self getVariable [VAR_NAME, _NIL(_def)];
 };

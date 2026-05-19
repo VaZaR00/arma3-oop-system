@@ -95,22 +95,19 @@
 #define NEW_OBJINSTANCE(name) NEW_OBJINSTANCE_GLOBAL(name, false)
 #define SPAWN_NEW_OBJINSTANCE(name) SPAWN_NEW_OBJINSTANCE_GLOBAL(name, false)
 
-#define SVAR_NAME(name) (if (_isSingleton) then {name} else {format["%1_%2", name, _instanceIndex]})
-#define VAR_NAME(name) SVAR_NAME(STR(name))
-
 #define GLOBAL_SETTER _oopSetVarGlobal = true;
 #define LOCAL_SETTER _oopSetVarGlobal = false;
-#define SET_SELFVART(name, target) _self setVariable [SPREFX + VAR_NAME(name), name, target];
+#define SET_SELFVART(name, target) [_self, STR(name), _NIL(name), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFVAR(name) SET_SELFVART(name, _oopSetVarGlobal)
 #define SET_SELFVARG(name) SET_SELFVART(name, true)
-#define SET_SELFSVART(name, target) _self setVariable [SPREFX + SVAR_NAME(name), call compile name, target];
+#define SET_SELFSVART(name, target) [_self, name, _NIL((call compile name)), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFSVAR(name) SET_SELFSVART(name, _oopSetVarGlobal)
 #define SET_SELFSVARG(name) SET_SELFVART(name, true)
 
-#define GET_SELFVAR(name) (_self getVariable [_ADDON_PREFX + STR(name), name])
+#define GET_SELFVAR(name) ([_self, name, nil] call OOP_OBJ_CLASS_fnc_getVar)
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
-#define IVAR(instance, name, def) private name = instance getVariable [_ADDON_PREFX + STR(name), def];
+#define IVAR(instance, name, def) private name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
 
 
 #define SAVE_VARS _oopSaveVars = true;
