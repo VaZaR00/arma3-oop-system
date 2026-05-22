@@ -113,28 +113,6 @@ OOP_OBJ_CLASS_fnc_newInstance = {
     [_obj, "OOP_OBJ_CLASS_objClassInstancesClasses", _instanceName, true, _global, _global] call OOP_fnc_pushBackNet;
 
     if !(_classSet) then {
-        private _fields = _class getOrDefaultCall ["fields", {EXCEPTION(EXCEPTION_NO_FIELDS); createHashMap}];
-        {
-            _y params ["_varname", "_def", ["_type", []]];
-            if (call {
-                private _prevVal = _obj getVariable _varname;
-                if (isNil "_prevVal") exitWith {true};
-                private _prevValValid = [_prevVal, _type, _NIL(_def)] call OOP_fnc_validateFieldType;
-                if (isNil "_prevValValid") exitWith {true};
-                if (_prevValValid isEqualTo _def) exitWith {true};
-                // variable already set and is valid then dont set
-                false
-            }) then {
-                if (_def isEqualType []) then {
-                    _def = +_def;
-                };
-                if (_def isEqualType createHashMap) then {
-                    _def = +_def;
-                };
-                _obj setVariable [_varname, _def, _global];
-            };
-        } forEach _fields;
-
         private _methods = _class getOrDefaultCall ["methods", {EXCEPTION(EXCEPTION_NO_METHODS); createHashMap}];
         {
             // _y = [_methodVarNameFull, _methodScript, _methodSelfFields]
