@@ -21,7 +21,7 @@
 #define NIL_DEF _NIL(_def)
 
 OOP_fnc_class = {
-    params ["_className", "_fields", "_methods", ["_selfVar", ""], ["_isSignleton", true]];
+    params ["_className", "_fields", "_methods", ["_selfVar", ""], ["_isSignleton", true], ["_varsPrefix", ""]];
 
     private _prefix = if (isNil "_ADDON_PREFX") then {SPREFX} else {_ADDON_PREFX};
     private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
@@ -50,7 +50,7 @@ OOP_fnc_class = {
                 };
             };
         } else {_fieldType};
-        private _fieldNameFull = format["%1%2", _prefix, _fieldName];
+        private _fieldNameFull = format["%1%2%3", _prefix, _varsPrefix, _fieldName];
         _fieldsCompiled pushBack [_fieldName, [_fieldNameFull, _fieldDef, _fieldType]];
         _isVolatile = false;
     } forEach _fields;
@@ -80,6 +80,7 @@ OOP_fnc_class = {
 
 	private _selfVar = if (!(_selfVar isEqualType "") || {(_selfVar isEqualTo "")}) then {"_self"} else {_selfVar};
     _classMap set ["selfvar", _selfVar];
+    _classMap set ["varsPrefix", _varsPrefix];
 
     _classMap set ["isSignleton", _isSignleton];
 
@@ -124,17 +125,20 @@ OOP_OBJ_CLASS_fnc_newInstance = {
         _selfVar = if (!(_selfVar isEqualType "") || {(_selfVar isEqualTo "")}) then {"_self"} else {_selfVar};
         _obj setVariable [format["%1_selfVar", _classRegistryName], _selfVar, _global];
 
+        private _varsPrefix = _class getOrDefault ["varsPrefix", ""];
+        _obj setVariable [format["%1_varsPrefix", _classRegistryName], _varsPrefix, _global];
+
         _obj setVariable [format["%1_classMap", _classRegistryName], _class, _global];
     };
 
     private _initResult = [[_className, _instanceId], _obj, INIT, _initArgs, NIL_DEF] call OOP_OBJ_CLASS_fnc_callClassInstance;
-    if (isNil "_initResult") then {NIL_DEF} else {_initResult};
+    if (isNil "_initResult") then {[_instanceId, NIL_DEF]} else {[_instanceId, _initResult]};
 };
 
 OOP_OBJ_CLASS_fnc_callClassInstance = {
 	params["_instance", "_obj", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
-    _instance params ["_classname", ["_instanceIndex", -1]];
+    _instance params ["_className", ["_instanceIndex", -1]];
 
     private _isSingleton = _instanceIndex < 0;
 
@@ -162,6 +166,7 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 		call compile (format["%1 = _obj getVariable ['%2', _fieldDef]; %1 = [if (isNil '%1') then {nil} else {%1}, _fieldType, _fieldDef] call OOP_fnc_validateFieldType", _fieldName, _fieldNameFull])
 	} forEach _methodSelfFields;
 
+	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
 	private _selfVar = _obj getVariable [format["%1_selfVar", _classRegistryName], "_self"];
 	if !(_selfVar isEqualType "") then {
 		_selfVar = "_self";
@@ -181,7 +186,7 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 
     // call method
     _this = _thisArgs;
-    private _result = _this call _method;
+    private _result = _thisArgs call _method;
 
     // class middleware
     // saving vars
@@ -274,13 +279,17 @@ OOP_fnc_pushBackNet = {
 };
 
 OOP_OBJ_CLASS_fnc_setVar = {
-    params["_self", "_name", ["_val", nil], ["_target", false], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    params["_self", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
+    private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
+	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
     _self setVariable [VAR_NAME, _NIL(_val), _target];
 };
 
 OOP_OBJ_CLASS_fnc_getVar = {
-    params["_self", "_name", ["_def", nil], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    params["_self", "_className", "_name", ["_def", nil], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
+    private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
+	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
     _self getVariable [VAR_NAME, _NIL(_def)];
 };

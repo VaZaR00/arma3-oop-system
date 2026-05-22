@@ -6,6 +6,7 @@
     private _classname = STR(name); \
     private _methods = []; \
     private _selfVar = ""; \
+    private _varsPrefix = ""; \
     private _isSignleton = false; \
     PREFIX_VAR \
 
@@ -22,12 +23,15 @@
 #define SET_SELF_VAR(name) _selfVar = name;
 
 
+#define SET_VARS_PREFIX(prefix) _varsPrefix = prefix;
+
+
 #define METHOD(name) \
     _methods pushBack name; _methods pushBack 
 
 
 #define OBJCLASS_END \
-    [_classname, _fields, _methods, _selfVar, _isSignleton] call OOP_fnc_class }; \
+    [_classname, _fields, _methods, _selfVar, _isSignleton, _varsPrefix] call OOP_fnc_class }; \
 
 
 // Singleton calls
@@ -100,18 +104,19 @@
 
 #define GLOBAL_SETTER _oopSetVarGlobal = true;
 #define LOCAL_SETTER _oopSetVarGlobal = false;
-#define SET_SELFVART(name, target) [_self, STR(name), _NIL(name), target] call OOP_OBJ_CLASS_fnc_setVar;
+#define SET_SELFVART(name, target) [_self, _className, STR(name), _NIL(name), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFVAR(name) SET_SELFVART(name, _oopSetVarGlobal)
 #define SET_SELFVARG(name) SET_SELFVART(name, true)
-#define SET_SELFSVART(name, target) [_self, name, _NIL((call compile name)), target] call OOP_OBJ_CLASS_fnc_setVar;
+#define SET_SELFSVART(name, target) [_self, _className, name, _NIL((call compile name)), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFSVAR(name) SET_SELFSVART(name, _oopSetVarGlobal)
 #define SET_SELFSVARG(name) SET_SELFVART(name, true)
 
-#define GET_SELFVAR(name) ([_self, name, nil] call OOP_OBJ_CLASS_fnc_getVar)
+#define GET_SELFVAR(name) ([_self, _className, name, nil] call OOP_OBJ_CLASS_fnc_getVar)
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
-#define PR_IVAR(instance, name, def) private name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
-#define IVAR(instance, name, def) name = [instance, STR(name), _NIL(_def)] call OOP_OBJ_CLASS_fnc_getVar;
+#define IVAR(instance, className, name, def) ([instance, className, STR(name), def] call OOP_OBJ_CLASS_fnc_getVar)
+#define PR_IVAR_S(instance, className, name, def) private name = IVAR(instance, className, name, def);
+#define IVAR_S(instance, className, name, def) name = IVAR(instance, className, name, def);
 
 
 #define SAVE_VARS _oopSaveVars = true;
@@ -126,4 +131,4 @@
 #define SAVE_VAR_DEF(name) SAVE_VAR_TARGET(name, nil)
 
 
-#define NP_PARAMS call {_paramsMap = _this}; private (_paramsMap apply {if (_x isEqualType []) then {_x#0} else {_x}}); _paramsMap call OOP_fnc_nonPrivateParams;
+#define NP_PARAMS call {_paramsMap = _this}; private (_paramsMap apply {if (_x isEqualType []) then {_x select 0} else {_x}}); _paramsMap call OOP_fnc_nonPrivateParams;
