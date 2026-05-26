@@ -107,16 +107,23 @@
 #define SET_SELFVART(name, target) [_self, _className, STR(name), _NIL(name), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFVAR(name) SET_SELFVART(name, _oopSetVarGlobal)
 #define SET_SELFVARG(name) SET_SELFVART(name, true)
-#define SET_SELFSVART(name, target) [_self, _className, name, _NIL((call compile name)), target] call OOP_OBJ_CLASS_fnc_setVar;
+#define SET_SELFSVART(name, target) [_self, _className, name, (call compile name), target] call OOP_OBJ_CLASS_fnc_setVar;
 #define SET_SELFSVAR(name) SET_SELFSVART(name, _oopSetVarGlobal)
 #define SET_SELFSVARG(name) SET_SELFVART(name, true)
 
 #define GET_SELFVAR(name) ([_self, _className, name, nil] call OOP_OBJ_CLASS_fnc_getVar)
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
-#define IVAR(instance, className, name, def) ([instance, className, STR(name), def] call OOP_OBJ_CLASS_fnc_getVar)
-#define PR_IVAR_S(instance, className, name, def) private name = IVAR(instance, className, name, def);
-#define IVAR_S(instance, className, name, def) name = IVAR(instance, className, name, def);
+// SIGNLETONS
+#define SIVAR(instance,className,name,def) ([instance,className,STR(name),def,-1] call OOP_OBJ_CLASS_fnc_getVar)
+#define PR_SIVAR_S(instance,className,name,def) private name = SIVAR(instance,className,name,def);
+#define SIVAR_S(instance,className,name,def) name = SIVAR(instance,className,name,def);
+
+
+// NON SIGNLETONS
+#define IVAR(instance,className,name,instanceId,def) ([instance,className,STR(name),def,instanceId] call OOP_OBJ_CLASS_fnc_getVar)
+#define PR_IVAR_S(instance,className,name,instanceId,def) private name = IVAR(instance,className,name,instanceId,def);
+#define IVAR_S(instance,className,name,instanceId,def) name = IVAR(instance,className,name,instanceId,def);
 
 
 #define SAVE_VARS _oopSaveVars = true;
@@ -131,4 +138,9 @@
 #define SAVE_VAR_DEF(name) SAVE_VAR_TARGET(name, nil)
 
 
-#define NP_PARAMS call {_paramsMap = _this}; private (_paramsMap apply {if (_x isEqualType []) then {_x select 0} else {_x}}); _paramsMap call OOP_fnc_nonPrivateParams;
+#define NP_PARAMS call {_paramsMap = _this}; \
+    private _oo_privateVarnames = (_paramsMap apply {if (_x isEqualType []) then {_x select 0} else {_x}}); \
+    private _oo_varsToPrivate = _oo_privateVarnames select {isNil _x}; \
+    _oo_varsToPrivate = if (_oo_varsToPrivate isEqualTo []) then {["_TEMPPPPP"]} else {_oo_varsToPrivate}; \
+    private _oo_varsToPrivate; \
+    _paramsMap call OOP_fnc_nonPrivateParams;

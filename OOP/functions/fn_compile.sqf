@@ -14,9 +14,9 @@
 #define EXCEPTION_NO_CLASSNAME 2
 #define EXCEPTION_NO_FIELDS 3
 #define EXCEPTION_NO_METHODS 4
-#define EXCEPTION_METHOD_DONT_EXISTS 4
-#define EXCEPTION_METHOD_FUNC_DONT_EXISTS 5
-#define EXCEPTION_SELF_VAR_NOT_STRING 6
+#define EXCEPTION_METHOD_DONT_EXISTS 5
+#define EXCEPTION_METHOD_FUNC_DONT_EXISTS 6
+#define EXCEPTION_SELF_VAR_NOT_STRING 7
 
 #define NIL_DEF _NIL(_def)
 
@@ -155,15 +155,18 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 	if !(_methodSelfFields isEqualType []) then {_methodSelfFields = []};
 	_methodSelfFields = _methodSelfFields select {(_x#0) isEqualType ""};
 
-    private _methodSelfFieldsVars = _methodSelfFields apply {_x#0};
-    if (_methodSelfFieldsVars isEqualTo []) then {_methodSelfFieldsVars = ["_tempp"]};
-	private _methodSelfFieldsVars;
+    private _methodSelfFieldsVars = (_methodSelfFields apply {_x#0});
+    private _methodSelfPrivateFieldsVars = _methodSelfFieldsVars select {isNil _x};
+    if (_methodSelfPrivateFieldsVars isEqualTo []) then {_methodSelfPrivateFieldsVars = ["_tempp"]};
+	private _methodSelfPrivateFieldsVars;
 	{
-		_x params ["_fieldName", ["_fieldParams", []]];
+		_x params [["_fieldName", ""], ["_fieldParams", []]];
 		if (_fieldName isEqualTo "") then {continue};
-		_fieldParams params ["_fieldNameFull", ["_fieldDef", nil], ["_fieldType", []]];
+		if !(_fieldName in _methodSelfPrivateFieldsVars) then {continue};
+		_fieldParams params [["_fieldNameFull", ""], ["_fieldDef", nil], ["_fieldType", []]];
         _fieldNameFull = if (_isSingleton) then {_fieldNameFull} else {format["%1_%2", _fieldNameFull, _instanceIndex]};
-		call compile (format["%1 = _obj getVariable ['%2', _fieldDef]; %1 = [if (isNil '%1') then {nil} else {%1}, _fieldType, _fieldDef] call OOP_fnc_validateFieldType", _fieldName, _fieldNameFull])
+		call compile (format["%1 = _obj getVariable ['%2', _fieldDef]; %1 = [if (isNil '%1') then {nil} else {%1}, _fieldType, _fieldDef] call OOP_fnc_validateFieldType", _fieldName, _fieldNameFull]);
+        ["PR VAR", _obj, _instanceIndex, _isSingleton, _fieldName, _fieldNameFull, call compile _fieldName] RLOG
 	} forEach _methodSelfFields;
 
 	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
@@ -191,10 +194,15 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
     // class middleware
     // saving vars
     if !(_oopSaveVars isEqualTo false) then {
+		[format["SAVEVRS | %1 | %2", _self, _methodName], "_self, _turretObject, _turretIndex, _zoomTable, _isLocal, 
+		_pointParams, _tiParams, _nvgParam, _isStaticCam, _canMoveCamera, _currentCameraMoves, _cameraMoveRestrictions, _smoothZoom,
+		 _camPosFunc"] RLOG_VARS
+        ["SAVING", _instanceIndex, _self, _methodSelfFieldsVars, count _methodSelfFieldsVars, count _methodSelfPrivateFieldsVars, _NIL(_objClass)] RLOG
         if !(_methodSelfFields isEqualTo []) then {
             private ["_target"];
             {
                 _target = _oopToSaveVarsParams getOrDefault [_x, _oopSetVarGlobal];
+                ["SAVING VAR", _self, _x, _target] RLOG
                 SET_SELFSVART(_x, _target);
             } forEach (if (_oopSaveVars isEqualTo true) then {_methodSelfFieldsVars} else {_oopToSaveVars});
         };
@@ -255,8 +263,20 @@ OOP_fnc_classExists = {
 };
 
 OOP_fnc_raiseException = {
-	_this DLOG;
-	_this param [2, nil];
+    params [["_id", -1], ["_this", nil], ["_className", nil], ["_class", nil], ["_def", nil]];
+    private _log = switch (_id) do {
+        case EXCEPTION_METHOD_DONT_EXISTS: {
+            _this + [_NIL(_classRegistryName), _NIL(_methodName), _NIL(_instanceIndex)]
+        };
+        case EXCEPTION_METHOD_FUNC_DONT_EXISTS: { };
+        case EXCEPTION_SELF_VAR_NOT_STRING: { };
+        default { };
+    };
+    if (isNil "_log") then {
+        _log = [_id, _this];
+    };
+	_log DLOG;
+	_id
 };
 
 OOP_fnc_remoteExec = {
@@ -280,16 +300,17 @@ OOP_fnc_pushBackNet = {
 
 OOP_OBJ_CLASS_fnc_setVar = {
     params["_self", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
-
     private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
-	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
+	private _varsPrefix = _self getVariable [format["%1_varsPrefix", _classRegistryName], ""];
     _self setVariable [VAR_NAME, _NIL(_val), _target];
+    ["setvar", _self, _className, _name, VAR_NAME, _varsPrefix, _NIL(_val), _target, _instanceID, _ADDON_PREFX] RLOG
 };
 
 OOP_OBJ_CLASS_fnc_getVar = {
     params["_self", "_className", "_name", ["_def", nil], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
     private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
-	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
+	private _varsPrefix = _self getVariable [format["%1_varsPrefix", _classRegistryName], ""];
+    ["getvar", _self, _className, _name, VAR_NAME, _self getVariable [VAR_NAME, _NIL(_def)], _varsPrefix, _NIL(_def), _instanceID, _ADDON_PREFX] RLOG;
     _self getVariable [VAR_NAME, _NIL(_def)];
 };
