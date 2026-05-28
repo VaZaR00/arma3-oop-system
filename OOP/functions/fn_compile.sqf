@@ -91,7 +91,9 @@ OOP_fnc_class = {
 OOP_OBJ_CLASS_fnc_newInstance = {
     params ["_className", "_obj", ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
-    if !(IS_OBJ(_obj)) exitWith {EXCEPTION(EXCEPTION_NON_OBJ)};
+    if !(IS_OBJ(_obj)) exitWith {
+        // EXCEPTION(EXCEPTION_NON_OBJ)
+    };
 
     private _class = [_className] call OOP_fnc_classExists;
 
@@ -142,7 +144,9 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 
     private _isSingleton = _instanceIndex < 0;
 
-    if !(IS_OBJ(_obj)) exitWith {EXCEPTION(EXCEPTION_NON_OBJ)};
+    if !(IS_OBJ(_obj)) exitWith {
+        // EXCEPTION(EXCEPTION_NON_OBJ)
+    };
 
     private _classRegistryName = [_className] call OOP_fnc_classRegistryName;
 	private _methodParams = _obj getVariable format["%1_%2", _classRegistryName, _methodName];
@@ -269,7 +273,7 @@ OOP_fnc_raiseException = {
     if (isNil "_log") then {
         _log = [_id, _this];
     };
-	_log DLOG;
+	format["OOP EXCEPTION: %1", _log] DLOG;
 	_id
 };
 
