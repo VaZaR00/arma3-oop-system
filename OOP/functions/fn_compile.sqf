@@ -277,7 +277,7 @@ OOP_fnc_raiseException = {
 	_id
 };
 
-OOP_fnc_remoteExec = {
+OOP_fnc_RemoteExec = {
     _this call EFL_fnc_remoteExec;
 };
 
