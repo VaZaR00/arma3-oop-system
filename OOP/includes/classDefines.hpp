@@ -144,3 +144,6 @@
     _oo_varsToPrivate = if (_oo_varsToPrivate isEqualTo []) then {["_TEMPPPPP"]} else {_oo_varsToPrivate}; \
     private _oo_varsToPrivate; \
     _paramsMap call OOP_fnc_nonPrivateParams;
+
+
+#define UNUSED_METHOD(name) 
