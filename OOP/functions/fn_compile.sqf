@@ -36,7 +36,7 @@ OOP_fnc_class = {
         };
         if !(_x isEqualType []) then {continue};
         private _fieldName = _x select 0;
-        private _fieldDef = _x select 1;
+        private _fieldDef = _x param [1, -1];
         if ((_fieldDef isEqualType []) || {(_fieldDef isEqualType createHashMap)}) then {
             _fieldDef = +_fieldDef;
         };
@@ -64,8 +64,8 @@ OOP_fnc_class = {
         private _methodName = _methods select _i;
         private _method = _methods select (_i + 1);
         _skipI pushBack (_i + 1);
-		private _methodStr = str _method;
-        private _methodSelfFields = _fieldsCompiled select {(_x#0) in _methodStr};
+		private _methodStr = toLower (str _method);
+        private _methodSelfFields = _fieldsCompiled select {(tolower (_x#0)) in _methodStr};
 		private _methodNameFull = format["%1_%2", _classRegistryName, _methodName];
         missionNamespace setVariable [_methodNameFull, _method];
         _methodsCompiled pushBack [_methodName, [_methodNameFull, _method, _methodSelfFields]];
@@ -142,6 +142,10 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 
     _instance params ["_className", ["_instanceIndex", -1]];
 
+    private _parentCallerClass = if (isNil "_currentCalledClassName") then {""} else {_currentCalledClassName};
+    private _currentCalledClassName = _className;
+    private _doPrivateVars = _parentCallerClass isNotEqualTo _currentCalledClassName;
+
     private _isSingleton = _instanceIndex < 0;
 
     if !(IS_OBJ(_obj)) exitWith {
@@ -160,7 +164,7 @@ OOP_OBJ_CLASS_fnc_callClassInstance = {
 	_methodSelfFields = _methodSelfFields select {(_x#0) isEqualType ""};
 
     private _methodSelfFieldsVars = (_methodSelfFields apply {_x#0});
-    private _methodSelfPrivateFieldsVars = _methodSelfFieldsVars select {isNil _x};
+    private _methodSelfPrivateFieldsVars = if (_doPrivateVars) then {_methodSelfFieldsVars} else {_methodSelfFieldsVars select {isNil _x}};
     if (_methodSelfPrivateFieldsVars isEqualTo []) then {_methodSelfPrivateFieldsVars = ["_tempp"]};
 	private _methodSelfPrivateFieldsVars;
 	{
