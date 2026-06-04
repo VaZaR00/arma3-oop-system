@@ -6,3 +6,4 @@ call FUNC(XEH_prep);
 #endif
 
 call FUNC(compile);
+call FUNC(initCBAEvents);

@@ -1,1 +1,2 @@
 PREP(compile)
+PREP(initCBAEvents)

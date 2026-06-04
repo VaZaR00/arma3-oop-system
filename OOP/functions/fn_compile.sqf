@@ -228,9 +228,7 @@ OOP_OBJ_CLASS_fnc_remoteExecClassInstance = {
         _remoteExecParams = [_remoteExecParams];
     };
     _remoteExecParams params [["_targets", 0], ["_jip", _jip], ["_call", false, [false]]];
-    [_callArgs, {
-        _this call OOP_OBJ_CLASS_fnc_callClassInstance;
-    }, _targets, _jip, _call] call OOP_fnc_remoteExec;
+    ["EFL_callClassInstance", _callArgs, _target, _jip] call OOP_fnc_RemoteEvent;
 };
 
 OOP_fnc_validateFieldType = {
@@ -283,6 +281,10 @@ OOP_fnc_raiseException = {
 
 OOP_fnc_RemoteExec = {
     _this call EFL_fnc_remoteExec;
+};
+
+OOP_fnc_RemoteEvent = {
+    _this call EFL_fnc_remoteEvent;
 };
 
 OOP_fnc_nonPrivateParams = {
