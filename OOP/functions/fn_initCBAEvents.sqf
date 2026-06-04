@@ -8,4 +8,4 @@
 
 #define WRAP_FUNC(f) {LOG_CBA_EVENT; _this call f}
 
-["EFL_callClassInstance", WRAP_FUNC(OOP_OBJ_CLASS_fnc_callClassInstance)] call CBA_fnc_addEventHandler;
+["EFL_callClassInstance", WRAP_FUNC(PREF(OBJ_CLASS_fnc_callClassInstance))] call CBA_fnc_addEventHandler;
