@@ -280,11 +280,11 @@ FUNC(raiseException) = {
 };
 
 FUNC(RemoteExec) = {
-    _this call EFL_fnc_remoteExec;
+    _this call EFL_FUNC(remoteExec);
 };
 
 FUNC(RemoteEvent) = {
-    _this call EFL_fnc_remoteEvent;
+    _this call EFL_FUNC(remoteEvent);
 };
 
 FUNC(nonPrivateParams) = {
@@ -295,11 +295,11 @@ FUNC(nonPrivateParams) = {
 };
 
 FUNC(pushBackGlobal) = {
-    _this call EFL_fnc_pushBackGlobal;
+    _this call EFL_FUNC(pushBackGlobal);
 };
 
 FUNC(pushBackNet) = {
-    _this call EFL_fnc_pushBackNet;
+    _this call EFL_FUNC(pushBackNet);
 };
 
 PREF(OBJ_CLASS_fnc_setVar) = {
