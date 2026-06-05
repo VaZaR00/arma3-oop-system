@@ -1,10 +1,7 @@
 #include "defines.hpp"
 
-#define DO_LOG_CBA_EVENTS
-
-#ifdef DO_LOG_CBA_EVENTS
-	#define LOG_CBA_EVENT [_NIL(_eventName), time, _NIL(_this), clientOwner] RLOG
-#endif
+// #define LOG_CBA_EVENT [_NIL(_eventName), time, _NIL(_this), clientOwner] RLOG
+#define LOG_CBA_EVENT 
 
 #define WRAP_FUNC(f) {LOG_CBA_EVENT; _this call f}
 
