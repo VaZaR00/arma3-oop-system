@@ -14,3 +14,4 @@
 #endif
 
 #include "main.hpp"
+#include "classDefines.hpp"

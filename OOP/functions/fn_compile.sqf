@@ -4,13 +4,15 @@
 
 #define INIT "Init"
 
+#define IS_VALID_SELF_NAMESPACE(np) (np isEqualTypeAny [objNull, missionNamespace, grpNull, locationNull, displayNull, controlNull, teamMemberNull, taskNull])
+
 
 
 // EXCEPTIONS
 #define EXCEPTION(code) ([code, _NIL(_this), _NIL(_className), _NIL(_class), NIL_DEF] call FUNC(raiseException))
 
 #define EXCEPTION_CLASS_DONT_EXISTS 0
-#define EXCEPTION_NON_OBJ 1
+#define EXCEPTION_NON_NAMESPACE 1
 #define EXCEPTION_NO_CLASSNAME 2
 #define EXCEPTION_NO_FIELDS 3
 #define EXCEPTION_NO_METHODS 4
@@ -21,7 +23,7 @@
 #define NIL_DEF _NIL(_def)
 
 FUNC(class) = {
-    params ["_className", "_fields", "_methods", ["_selfVar", ""], ["_isSignleton", true], ["_varsPrefix", ""]];
+    params ["_className", "_fields", "_methods", ["_selfNamespaceVar", ""], ["_isSignleton", true], ["_varsPrefix", ""]];
 
     private _prefix = if (isNil "_ADDON_PREFX") then {SPREFX} else {_ADDON_PREFX};
     private _classRegistryName = [_className] call FUNC(classRegistryName);
@@ -78,8 +80,8 @@ FUNC(class) = {
     _classMap set ["methods", _methodsMap];
     _classMap set ["classname", _classRegistryName];
 
-	private _selfVar = if (!(_selfVar isEqualType "") || {(_selfVar isEqualTo "")}) then {"_self"} else {_selfVar};
-    _classMap set ["selfvar", _selfVar];
+	private _selfNamespaceVar = if (!(_selfNamespaceVar isEqualType "") || {(_selfNamespaceVar isEqualTo "")}) then {"_self"} else {_selfNamespaceVar};
+    _classMap set ["selfvar", _selfNamespaceVar];
     _classMap set ["varsPrefix", _varsPrefix];
 
     _classMap set ["isSignleton", _isSignleton];
@@ -88,11 +90,15 @@ FUNC(class) = {
     _classMap
 };
 
-PREF(OBJ_CLASS_fnc_newInstance) = {
-    params ["_className", "_obj", ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+FUNC(newInstance) = {
+    params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
-    if !(IS_OBJ(_obj)) exitWith {
-        // EXCEPTION(EXCEPTION_NON_OBJ)
+    if (isNil "_namespace") then {
+        _namespace = missionNamespace;
+    };
+
+    if !(IS_VALID_SELF_NAMESPACE(_namespace)) exitWith {
+        // EXCEPTION(EXCEPTION_NON_NAMESPACE)
     };
 
     private _class = [_className] call FUNC(classExists);
@@ -103,57 +109,106 @@ PREF(OBJ_CLASS_fnc_newInstance) = {
     private _isSignleton = _class getOrDefault ["isSignleton", true];
     
     private _instanceName = _classRegistryName;
-    private _classSet = false;
     private _instanceId = -1;
     if !(_isSignleton) then {
-        private _classInstancesIdsVarName = format[SPREF_ + "OBJ_CLASS_%1_InstanceIds", _classRegistryName];
-        _classIds = +(_obj getVariable [_classInstancesIdsVarName, []]);
-        _classSet = _classIds isNotEqualTo [];
+        private _classInstancesIdsVarName = format[SPREF_ + "class_%1_InstanceIds", _classRegistryName];
+        _classIds = +(_namespace getVariable [_classInstancesIdsVarName, []]);
         _instanceId = (_classIds param [((count _classIds) -1) max 0, 0]) + 1;
         _instanceName = INSTANCE_NAME(_classRegistryName, _instanceId);
-        [_obj, _classInstancesIdsVarName, _instanceId, true, _global, _global] call FUNC(pushBackNet);
+        [_namespace, _classInstancesIdsVarName, _instanceId, true, _global, _global] call FUNC(pushBackNet);
     };
-    [_obj, SPREF_ + "OBJ_CLASS_objClassInstancesClasses", _instanceName, true, _global, _global] call FUNC(pushBackNet);
 
-    if !(_classSet) then {
-        private _methods = _class getOrDefaultCall ["methods", {EXCEPTION(EXCEPTION_NO_METHODS); createHashMap}];
+    private _instance = missionNamespace getVariable _instanceName;
+
+    if (isNil "_instance") then {
+        [_namespace, SPREF_ + "namespaceClassesInstances", _instanceName, true, _global, _global] call FUNC(pushBackNet);
+
+        private _methodsMaps = _class getOrDefaultCall ["methods", {EXCEPTION(EXCEPTION_NO_METHODS); createHashMap}];
+        private _methods = keys _methodsMaps;
         {
             // _y = [_methodVarNameFull, _methodScript, _methodSelfFields]
             // for network optimisation we set only method variable name (_y select 2) not full script
-            _obj setVariable [format["%1_%2", _classRegistryName, _x], [_y select 0, _y select 2], _global];
-        } forEach _methods;
+            _namespace setVariable [format["%1_%2", _instanceName, _x], [_y select 0, _y select 2], _global];
+        } forEach _methodsMaps;
 
-        private _selfVar = _class getOrDefault ["selfvar", "_self"];
-        _selfVar = if (!(_selfVar isEqualType "") || {(_selfVar isEqualTo "")}) then {"_self"} else {_selfVar};
-        _obj setVariable [format["%1_selfVar", _classRegistryName], _selfVar, _global];
+        private _fieldsMap = _class getOrDefaultCall ["fields", {EXCEPTION(EXCEPTION_NO_FIELDS); createHashMap}];
+        private _fields = keys _fieldsMap;
+
+        private _selfNamespaceVar = _class getOrDefault ["selfvar", "_self"];
+        _selfNamespaceVar = if (!(_selfNamespaceVar isEqualType "") || {(_selfNamespaceVar isEqualTo "")}) then {"_self"} else {_selfNamespaceVar};
+        _namespace setVariable [format["%1_selfNamespaceVar", _instanceName], _selfNamespaceVar, _global];
 
         private _varsPrefix = _class getOrDefault ["varsPrefix", ""];
-        _obj setVariable [format["%1_varsPrefix", _classRegistryName], _varsPrefix, _global];
+        _namespace setVariable [format["%1_varsPrefix", _instanceName], _varsPrefix, _global];
 
-        _obj setVariable [format["%1_classMap", _classRegistryName], _class, _global];
+        _namespace setVariable [format["%1_classMap", _instanceName], _class, _global];
+        
+        missionNamespace setVariable [_instanceName + "_namespace", _namespace, _global];
+        missionNamespace setVariable [_instanceName + "_instanceIndex", _instanceId, _global];
+        missionNamespace setVariable [_instanceName + "_className", _className, _global];
+        missionNamespace setVariable [_instanceName + "_classRegistryName", _classRegistryName, _global];
+
+        _instance = compile format['{
+            PREFIX_VAR
+            private _instanceName = "%1";
+            private _methods = %2;
+            private _fields = %3;
+            private _namespace = missionNamespace getVariable [_instanceName + "_namespace", missionNamespace];
+            _this params [["_method", ""], ["_args", []], ["_def", nil]];
+            if (_method in _fields) exitWith {
+
+            };
+            ["%1", _namespace, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInstance);
+        }', _instanceName, _methods, _fields, _className, _instanceId];
     };
 
-    private _initResult = [[_className, _instanceId], _obj, INIT, _initArgs, NIL_DEF] call PREF(OBJ_CLASS_fnc_callClassInstance);
+    private _initResult = [INIT, _initArgs, NIL_DEF] call _instance;
     if (isNil "_initResult") then {[_instanceId, NIL_DEF]} else {[_instanceId, _initResult]};
 };
 
-PREF(OBJ_CLASS_fnc_callClassInstance) = {
-	params["_instance", "_obj", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+FUNC(callClassInstance) = {
+	params["_instanceParams", "_namespace", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
 
-    _instance params ["_className", ["_instanceIndex", -1]];
+    // -------------- instance data ---------------
+    private _instanceIndex = -1;
+    private _isSingleton = true;
+    private _className = "";
+    private _classRegistryName = "";
+    private _instanceName = _instanceParams;
 
+    if (_instanceName isEqualType "") then {
+        _instanceIndex = _namespace getVariable [_instanceName + "_instanceIndex", -1];
+        _className = _namespace getVariable [_instanceName + "_className", ""];
+        _classRegistryName = _namespace getVariable [_instanceName + "_classRegistryName", ""];
+        _isSingleton = _instanceIndex < 0;
+    } else {
+        _instanceParams params ["__className", ["__instanceIndex", -1]];
+        _className = __className;
+        _instanceIndex = __instanceIndex;
+        private __classRegistryName = [_className] call FUNC(classRegistryName);
+        _classRegistryName = __classRegistryName;
+        _isSingleton = _instanceIndex < 0;
+        _instanceName = if (_isSingleton) then {
+            _classRegistryName
+        } else {
+            INSTANCE_NAME(_classRegistryName, _instanceIndex)
+        };
+    };
+    // --------------------------------------------
+
+    // -------- if embedded method call -----------
     private _parentCallerClass = if (isNil "_currentCalledClassName") then {""} else {_currentCalledClassName};
     private _currentCalledClassName = _className;
     private _doPrivateVars = _parentCallerClass isNotEqualTo _currentCalledClassName;
+    // --------------------------------------------
 
-    private _isSingleton = _instanceIndex < 0;
+    // for OPTIMIZE remove
+    // if !(IS_VALID_SELF_NAMESPACE(_namespace)) exitWith {
+    //     // EXCEPTION(EXCEPTION_NON_NAMESPACE)
+    // };
 
-    if !(IS_OBJ(_obj)) exitWith {
-        // EXCEPTION(EXCEPTION_NON_OBJ)
-    };
-
-    private _classRegistryName = [_className] call FUNC(classRegistryName);
-	private _methodParams = _obj getVariable format["%1_%2", _classRegistryName, _methodName];
+    // -------------- method prepare --------------
+	private _methodParams = _namespace getVariable format["%1_%2", _instanceName, _methodName];
 	if (isNil "_methodParams") exitWith {
 		EXCEPTION(EXCEPTION_METHOD_DONT_EXISTS)
 	};
@@ -173,33 +228,40 @@ PREF(OBJ_CLASS_fnc_callClassInstance) = {
 		if !(_fieldName in _methodSelfPrivateFieldsVars) then {continue};
 		_fieldParams params [["_fieldNameFull", ""], ["_fieldDef", nil], ["_fieldType", []]];
         _fieldNameFull = if (_isSingleton) then {_fieldNameFull} else {format["%1_%2", _fieldNameFull, _instanceIndex]};
-		call compile (format['%1 = _obj getVariable ["%2", _fieldDef]; %1 = [if (isNil "%1") then {nil} else {%1}, _fieldType, _fieldDef] call FUNC(validateFieldType)', _fieldName, _fieldNameFull]);
+		call compile (format['%1 = _namespace getVariable ["%2", _fieldDef]; %1 = [if (isNil "%1") then {nil} else {%1}, _fieldType, _fieldDef] call FUNC(validateFieldType)', _fieldName, _fieldNameFull]);
 	} forEach _methodSelfFields;
+    // --------------------------------------------
 
-	private _varsPrefix = _obj getVariable [format["%1_varsPrefix", _classRegistryName], ""];
-	private _selfVar = _obj getVariable [format["%1_selfVar", _classRegistryName], "_self"];
-	if !(_selfVar isEqualType "") then {
-		_selfVar = "_self";
+    // -------------- prepare fields --------------
+	private _varsPrefix = _namespace getVariable [format["%1_varsPrefix", _instanceName], ""];
+    // self Namespace var
+	private _selfNamespaceVar = _namespace getVariable [format["%1_selfNamespaceVar", _instanceName], "_self"];
+	if !(_selfNamespaceVar isEqualType "") then {
+		_selfNamespaceVar = "_self";
 		EXCEPTION(EXCEPTION_SELF_VAR_NOT_STRING)
 	};
-	private [_selfVar];
-	private _self = _obj;
-	call compile (format["%1 = _obj", _selfVar]);
+	private [_selfNamespaceVar];
+	private _self = _namespace getVariable [_instanceName, {}];
+	private _selfNamespace = _namespace;
+	private _selfObj = _namespace;
+	call compile (format["%1 = _namespace", _selfNamespaceVar]);
+    // --------------------------------------------
 
-    // class middleware variables
+    // -------- class middleware variables --------
     private _paramsMap = [];
     private _thisMethod = _method;
     private _oopSetVarGlobal = false;
     private _oopSaveVars = false; // dont save vars by def
     private _oopToSaveVars = createHashMap;
     private _oopToSaveVarsParams = createHashMap;
+    // --------------------------------------------
 
-    // call method
+    // --------------- METHOD CALL ----------------
     _this = _thisArgs;
     private _result = _thisArgs call _method;
+    // --------------------------------------------
 
-    // class middleware
-    // saving vars
+    // --------------- SAVE VARS ----------------
     if !(_oopSaveVars isEqualTo false) then {
         if !(_methodSelfFields isEqualTo []) then {
             private ["_target"];
@@ -209,15 +271,16 @@ PREF(OBJ_CLASS_fnc_callClassInstance) = {
             } forEach (if (_oopSaveVars isEqualTo true) then {_methodSelfFieldsVars} else {_oopToSaveVars});
         };
     };
+    // --------------------------------------------
 
     _NIL(_result)
 };
 
-PREF(OBJ_CLASS_fnc_remoteExecClassInstance) = {
+FUNC(remoteExecClassInstance) = {
 	params[["_callArgs", []], ["_remoteExecParams", false]];
 
     if (_remoteExecParams isEqualTo false) exitWith {
-        _callArgs call PREF(OBJ_CLASS_fnc_callClassInstance);
+        _callArgs call FUNC(callClassInstance);
     };
 
     private _jip = false;
@@ -228,7 +291,7 @@ PREF(OBJ_CLASS_fnc_remoteExecClassInstance) = {
         _remoteExecParams = [_remoteExecParams];
     };
     _remoteExecParams params [["_targets", 0], ["_jip", _jip], ["_call", false, [false]]];
-    ["EFL_callClassInstance", _callArgs, _target, _jip] call FUNC(RemoteEvent);
+    [OOP_SPREF(callClassInstance), _callArgs, _target, _jip] call FUNC(RemoteEvent);
 };
 
 FUNC(validateFieldType) = {
@@ -248,7 +311,14 @@ FUNC(classRegistryName) = {
 	params["_className"];
     private _prefix = VAR_PREFIX;
 	_prefix = if (_prefix == "") then {_prefix} else {_prefix + "_"};
-    format[SPREF_ + "OBJ_CLASS_%1%2", _prefix, _className];
+    format[SPREF_ + "CLASS_%1%2", _prefix, _className];
+};
+
+FUNC(instanceName) = {
+	params["_className"];
+    private _instance = missionNamespace getVariable _className;
+    if !(isNil "_instance") exitWith {_className};
+    [_className] call FUNC(classRegistryName);
 };
 
 FUNC(classExists) = {
@@ -302,17 +372,22 @@ FUNC(pushBackNet) = {
     _this call EFL_FUNC(pushBackNet);
 };
 
-PREF(OBJ_CLASS_fnc_setVar) = {
-    params["_self", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
-    private _classRegistryName = [_className] call FUNC(classRegistryName);
-	private _varsPrefix = _self getVariable [format["%1_varsPrefix", _classRegistryName], ""];
-    _self setVariable [VAR_NAME, _NIL(_val), _target];
+FUNC(setVar) = {
+    params["_selfNamespace", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", _NIL(_instanceIndex)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    private _instanceName = [_className] call FUNC(instanceName);
+	private _varsPrefix = _selfNamespace getVariable [format["%1_varsPrefix", _instanceName], ""];
+    if (isNil "_instanceID") then {
+        _instanceID = missionNamespace getVariable [_instanceName + "_instanceIndex", -1];
+    };
+    _selfNamespace setVariable [VAR_NAME, _NIL(_val), _target];
 };
 
-PREF(OBJ_CLASS_fnc_getVar) = {
-    params["_self", "_className", "_name", ["_def", nil], ["_instanceID", IF_NIL(_instanceIndex, -1)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
-
-    private _classRegistryName = [_className] call FUNC(classRegistryName);
-	private _varsPrefix = _self getVariable [format["%1_varsPrefix", _classRegistryName], ""];
-    _self getVariable [VAR_NAME, _NIL(_def)];
+FUNC(getVar) = {
+    params["_selfNamespace", "_className", "_name", ["_def", nil], ["_instanceID", _NIL(_instanceIndex)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    private _instanceName = [_className] call FUNC(instanceName);
+	private _varsPrefix = _selfNamespace getVariable [format["%1_varsPrefix", _instanceName], ""];
+    if (isNil "_instanceID") then {
+        _instanceID = missionNamespace getVariable [_instanceName + "_instanceIndex", -1];
+    };
+    _selfNamespace getVariable [VAR_NAME, _NIL(_def)];
 };

@@ -1,18 +1,23 @@
 ﻿#define OOP_FUNC(f) OOP_PREFX##_fnc_##f
 #define OOP_PREF(s) OOP_PREFX##_##s
+#define OOP_SPREF(s) STR(OOP_PREF(s))
 
 
 #define PREFIX_VAR private _ADDON_PREFX = SPREFX;
 
 
-#define OBJCLASS(name) call { \
+#define CLASS(name) call { \
+    params[["_isSignleton", false]]; \
     private _fields = []; \
     private _classname = STR(name); \
     private _methods = []; \
-    private _selfVar = ""; \
+    private _selfNamespaceVar = ""; \
     private _varsPrefix = ""; \
-    private _isSignleton = false; \
+    _isSignleton = if (_isSignleton isEqualType false) then {_isSignleton} else {false}; \
     PREFIX_VAR \
+
+
+#define SINGLETON_CLASS(name) true CLASS(name)
 
 
 #define FIELD _fields pushBack
@@ -24,7 +29,7 @@
 #define IS_SINGLETON _isSignleton = true;
 
 
-#define SET_SELF_VAR(name) _selfVar = name;
+#define SET_SELF_VAR(name) _selfNamespaceVar = name;
 
 
 #define SET_VARS_PREFIX(prefix) _varsPrefix = prefix;
@@ -34,29 +39,29 @@
     _methods pushBack name; _methods pushBack 
 
 
-#define OBJCLASS_END \
-    [_classname, _fields, _methods, _selfVar, _isSignleton, _varsPrefix] call OOP_FUNC(class) }; \
+#define CLASS_END \
+    [_classname, _fields, _methods, _selfNamespaceVar, _isSignleton, _varsPrefix] call OOP_FUNC(class) }; \
 
 
 // Singleton calls
 #define CALL_OBJCLASS(name, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_def", nil]]; \
-    [name, obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_PREF(OBJ_CLASS_fnc_callClassInstance); \
+    [[name], obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInOOP_FUNCstance); \
 } \
 
 
 #define SPAWN_OBJCLASS(name, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_def", nil]]; \
-    [name, obj, _method, _args, NIL_DEF, _ADDON_PREFX] spawn OOP_PREF(OBJ_CLASS_fnc_callClassInstance); \
+    [[name], obj, _method, _args, NIL_DEF, _ADDON_PREFX] spawn OOP_FUNC(callClassInstance); \
 } \
 
 
 #define REMOTE_EXEC_OBJCLASS(name, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_remoteExecParams", false], ["_def", nil]]; \
-    [[name, obj, _method, _args, NIL_DEF, _ADDON_PREFX], _remoteExecParams] call OOP_PREF(OBJ_CLASS_fnc_remoteExecClassInstance); \
+    [[[name], obj, _method, _args, NIL_DEF, _ADDON_PREFX], _remoteExecParams] call OOP_FUNC(remoteExecClassInstance); \
 } \
 
 
@@ -64,70 +69,93 @@
 #define CALL_OBJINSTANCE(name, index, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_def", nil]]; \
-    [[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_PREF(OBJ_CLASS_fnc_callClassInstance); \
+    [[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInstance); \
 } \
 
 
 #define SPAWN_OBJINSTANCE(name, index, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_def", nil]]; \
-    [[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX] spawn OOP_PREF(OBJ_CLASS_fnc_callClassInstance); \
+    [[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX] spawn OOP_FUNC(callClassInstance); \
 } \
 
 
 #define REMOTE_EXEC_OBJINSTANCE(name, index, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_remoteExecParams", false], ["_def", nil]]; \
-    [[[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX], _remoteExecParams] call OOP_PREF(OBJ_CLASS_fnc_remoteExecClassInstance); \
+    [[[name, index], obj, _method, _args, NIL_DEF, _ADDON_PREFX], _remoteExecParams] call OOP_FUNC(remoteExecClassInstance); \
 } \
 
 
 #define NEW_OBJINSTANCE_GLOBAL(name, global) call { \
-	if (isNil "_this") exitWith {objNull}; \
     PREFIX_VAR \
 	if !(_this isEqualType []) then {_this = [_this]}; \
-	_this params [["_obj", objNull], ["_initArgs", []], ["_def", nil]]; \
-    [name, _obj, _initArgs, global, NIL_DEF, _ADDON_PREFX] call OOP_PREF(OBJ_CLASS_fnc_newInstance); \
+	IF_NIL(_this, []) params [["_np", missionNamespace], ["_initArgs", []], ["_def", nil]]; \
+    [name, _NIL(_np), _initArgs, global, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(newInstance); \
 } \
 
 
 #define SPAWN_NEW_OBJINSTANCE_GLOBAL(name, global) call { \
-	if (isNil "_this") exitWith {objNull}; \
     PREFIX_VAR \
 	if !(_this isEqualType []) then {_this = [_this]}; \
-	_this params [["_obj", objNull], ["_initArgs", []], ["_def", nil]]; \
-    [name, _obj, _initArgs, global, NIL_DEF, _ADDON_PREFX] spawn OOP_PREF(OBJ_CLASS_fnc_newInstance); \
+	IF_NIL(_this, []) params [["_np", missionNamespace], ["_initArgs", []], ["_def", nil]]; \
+    [name, _NIL(_np), _initArgs, global, NIL_DEF, _ADDON_PREFX] spawn OOP_FUNC(newInstance); \
 } \
+
+#define NEW_OBJINSTANCE(name) NEW_OBJINSTANCE_GLOBAL(name, false)
+#define SPAWN_NEW_OBJINSTANCE(name) SPAWN_NEW_OBJINSTANCE_GLOBAL(name, false)
+
+
+#define NEW_INSTANCE_GLOBAL(name, global) call { \
+	IF_NIL(_this, []) params [["_initArgs", []], ["_def", nil]]; \
+    _this = [nil, _initArgs, NIL_DEF]; \
+	_this NEW_OBJINSTANCE_GLOBAL(name, global) \
+} \
+
+#define SPAWN_NEW_INSTANCE_GLOBAL(name, global) spawn {_NIL(_this) call NEW_INSTANCE_GLOBAL(name, global)};
+
+#define NEW_INSTANCE(name) NEW_INSTANCE_GLOBAL(name, false)
+#define SPAWN_NEW_INSTANCE(name) SPAWN_NEW_INSTANCE_GLOBAL(name, false)
+
+
+#define CALL_SELF call _self;
+
+#define SPAWN_SELF spawn _self;
+
+#define CALL_CLASS(name) call { \
+    PREFIX_VAR \
+    private _instanceName = [name] call FUNC(instanceName); \
+    _NIL(_this) call (missionNamespace getVariable [_instanceName, {}]); \
+} \
+
+#define SPAWN_CLASS(name) spawn {_this CALL_CLASS(name)};
 
 
 #define INSTANCE_NAME(name, id) (format["%1_instance_%2", name, id])
 
 
-#define NEW_OBJINSTANCE(name) NEW_OBJINSTANCE_GLOBAL(name, false)
-#define SPAWN_NEW_OBJINSTANCE(name) SPAWN_NEW_OBJINSTANCE_GLOBAL(name, false)
-
 #define GLOBAL_SETTER _oopSetVarGlobal = true;
 #define LOCAL_SETTER _oopSetVarGlobal = false;
-#define SET_SELFVART(name, target) [_self, _className, STR(name), _NIL(name), target] call OOP_PREF(OBJ_CLASS_fnc_setVar);
+#define SET_SELFVART(name, target) [_selfNamespace, _instanceName, STR(name), _NIL(name), target] call OOP_FUNC(setVar);
 #define SET_SELFVAR(name) SET_SELFVART(name, _oopSetVarGlobal)
 #define SET_SELFVARG(name) SET_SELFVART(name, true)
-#define SET_SELFSVART(name, target) [_self, _className, name, (call compile name), target] call OOP_PREF(OBJ_CLASS_fnc_setVar);
+#define SET_SELFSVART(name, target) [_selfNamespace, _instanceName, name, (call compile name), target] call OOP_FUNC(setVar);
 #define SET_SELFSVAR(name) SET_SELFSVART(name, _oopSetVarGlobal)
 #define SET_SELFSVARG(name) SET_SELFVART(name, true)
 
-#define GET_SELFVAR(name) ([_self, _className, name, nil] call OOP_PREF(OBJ_CLASS_fnc_getVar))
+#define GET_SELFVAR(name) ([_selfNamespace, _instanceName, name, nil] call OOP_FUNC(getVar))
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
 // SIGNLETONS
-#define SIVAR(instance,className,name,def) ([instance,className,STR(name),def,-1] call OOP_PREF(OBJ_CLASS_fnc_getVar))
-#define PR_SIVAR_S(instance,className,name,def) private name = SIVAR(instance,className,name,def);
-#define SIVAR_S(instance,className,name,def) name = SIVAR(instance,className,name,def);
+#define SOIVAR(obj,className,name,def) ([obj,className,STR(name),def,-1] call OOP_FUNC(getVar))
+#define PR_SOIVAR_S(obj,className,name,def) private name = SOIVAR(obj,className,name,def);
+#define SOIVAR_S(obj,className,name,def) name = SOIVAR(obj,className,name,def);
 
 
 // NON SIGNLETONS
-#define IVAR(instance,className,name,instanceId,def) ([instance,className,STR(name),def,instanceId] call OOP_PREF(OBJ_CLASS_fnc_getVar))
-#define PR_IVAR_S(instance,className,name,instanceId,def) private name = IVAR(instance,className,name,instanceId,def);
-#define IVAR_S(instance,className,name,instanceId,def) name = IVAR(instance,className,name,instanceId,def);
+#define OIVAR(obj,className,name,instanceId,def) ([obj,className,STR(name),def,instanceId] call OOP_FUNC(getVar))
+#define PR_OIVAR_S(obj,className,name,instanceId,def) private name = OIVAR(obj,className,name,instanceId,def);
+#define OIVAR_S(obj,className,name,instanceId,def) name = OIVAR(obj,className,name,instanceId,def);
 
 
 #define SAVE_VARS _oopSaveVars = true;
