@@ -47,7 +47,7 @@
 #define CALL_OBJCLASS(name, obj) call { \
     PREFIX_VAR \
     _this params ["_method", ["_args", []], ["_def", nil]]; \
-    [[name], obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInOOP_FUNCstance); \
+    [[name], obj, _method, _args, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInstance); \
 } \
 
 
@@ -89,18 +89,11 @@
 
 #define NEW_OBJINSTANCE_GLOBAL(name, global) call { \
     PREFIX_VAR \
-	if !(_this isEqualType []) then {_this = [_this]}; \
-	IF_NIL(_this, []) params [["_np", missionNamespace], ["_initArgs", []], ["_def", nil]]; \
-    [name, _NIL(_np), _initArgs, global, NIL_DEF, _ADDON_PREFX] call OOP_FUNC(newInstance); \
+	IF_NIL(_this, []) params [["_np", missionNamespace], ["_initArgs", []], ["_def", nil], ["_globalNamespace", missionNamespace]]; \
+    [name, _NIL(_np), _initArgs, global, NIL_DEF, _ADDON_PREFX, _globalNamespace] call OOP_FUNC(newInstance); \
 } \
 
-
-#define SPAWN_NEW_OBJINSTANCE_GLOBAL(name, global) call { \
-    PREFIX_VAR \
-	if !(_this isEqualType []) then {_this = [_this]}; \
-	IF_NIL(_this, []) params [["_np", missionNamespace], ["_initArgs", []], ["_def", nil]]; \
-    [name, _NIL(_np), _initArgs, global, NIL_DEF, _ADDON_PREFX] spawn OOP_FUNC(newInstance); \
-} \
+#define SPAWN_NEW_OBJINSTANCE_GLOBAL(name, global) spawn {_NIL(_this) NEW_OBJINSTANCE_GLOBAL(name, global)};
 
 #define NEW_OBJINSTANCE(name) NEW_OBJINSTANCE_GLOBAL(name, false)
 #define SPAWN_NEW_OBJINSTANCE(name) SPAWN_NEW_OBJINSTANCE_GLOBAL(name, false)
@@ -112,7 +105,7 @@
 	_this NEW_OBJINSTANCE_GLOBAL(name, global) \
 } \
 
-#define SPAWN_NEW_INSTANCE_GLOBAL(name, global) spawn {_NIL(_this) call NEW_INSTANCE_GLOBAL(name, global)};
+#define SPAWN_NEW_INSTANCE_GLOBAL(name, global) spawn {_NIL(_this) NEW_INSTANCE_GLOBAL(name, global)};
 
 #define NEW_INSTANCE(name) NEW_INSTANCE_GLOBAL(name, false)
 #define SPAWN_NEW_INSTANCE(name) SPAWN_NEW_INSTANCE_GLOBAL(name, false)
@@ -124,7 +117,7 @@
 
 #define CALL_CLASS(name) call { \
     PREFIX_VAR \
-    private _instanceName = [name] call FUNC(instanceName); \
+    private _instanceName = [name] call OOP_FUNC(instanceName); \
     _NIL(_this) call (missionNamespace getVariable [_instanceName, {}]); \
 } \
 
