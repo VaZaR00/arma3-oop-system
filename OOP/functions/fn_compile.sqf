@@ -93,7 +93,7 @@ FUNC(class) = {
 };
 
 FUNC(newInstance) = {
-    params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)], ["_globalNamespace", IF_NIL(_globalNamespace, missionNamespace)]];
 
     ["NEW INST", _this] RLOG
 
@@ -275,9 +275,13 @@ FUNC(callClassInstance) = {
 		_selfNamespaceVar = "_namespace";
 		EXCEPTION(EXCEPTION_SELF_VAR_NOT_STRING)
 	};
-	private [_selfNamespaceVar];
 	private _self = _namespace getVariable [_instanceName, {}];
-	call compile (format["%1 = _namespace", _selfNamespaceVar]);
+    // dont re-private "_namespace" - it is already local in this scope and private would reset it to nil
+    private _selfVarIsNamespace = _selfNamespaceVar isEqualTo "_namespace";
+    private (if (_selfVarIsNamespace) then {["_oopTempSelfVar"]} else {[_selfNamespaceVar]});
+    if !(_selfVarIsNamespace) then {
+        call compile (format["%1 = _namespace", _selfNamespaceVar]);
+    };
     // --------------------------------------------
 
     // -------- class middleware variables --------
@@ -415,7 +419,8 @@ FUNC(pushBackNet) = {
 
 FUNC(setVar) = {
     params["_selfNamespace", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", _NIL(_instanceIndex)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
-    private _instanceName = [_className] call FUNC(instanceName);
+    // lookup instance in its own namespace (not missionNamespace), otherwise varsPrefix is lost for object instances
+    private _instanceName = [_className, _selfNamespace, _NIL(_instanceID)] call FUNC(instanceName);
 	private _varsPrefix = _selfNamespace getVariable [format["%1_varsPrefix", _instanceName], ""];
     if (isNil "_instanceID") then {
         _instanceID = _selfNamespace getVariable [_instanceName + "_instanceIndex", -1];
