@@ -93,7 +93,9 @@ FUNC(class) = {
 };
 
 FUNC(newInstance) = {
-    params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)], ["_globalNamespace", IF_NIL(_globalNamespace, missionNamespace)]];
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+    private _outerGlobalNamespace = IF_NIL(_globalNamespace, missionNamespace);
+    params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)], ["_globalNamespace", _outerGlobalNamespace]];
 
     ["NEW INST", _this] RLOG
 
@@ -186,11 +188,13 @@ FUNC(newInstance) = {
     };
 
     private _initResult = [INIT, _initArgs, NIL_DEF] call _instance;
+    if (_isSignleton) exitWith {if (isNil "_initResult") then {NIL_DEF} else {_initResult}};
     if (isNil "_initResult") then {[_instanceId, NIL_DEF]} else {[_instanceId, _initResult]};
 };
 
 FUNC(callClassInstance) = {
-	params["_instanceParams", "_namespace", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+	params["_instanceParams", "_namespace", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
 
     // for OPTIMIZE remove
     if !(IS_VALID_SELF_NAMESPACE(_namespace)) exitWith {
@@ -320,15 +324,15 @@ FUNC(remoteExecClassInstance) = {
         _callArgs call FUNC(callClassInstance);
     };
 
-    private _jip = false;
+    private _defJip = false;
     if (_remoteExecParams isEqualTo true) then {
-        _jip = true;
+        _defJip = true;
     };
     if !(_remoteExecParams isEqualType []) then {
         _remoteExecParams = [_remoteExecParams];
     };
-    _remoteExecParams params [["_targets", 0], ["_jip", _jip], ["_call", false, [false]]];
-    [OOP_SPREF(callClassInstance), _callArgs, _target, _jip] call FUNC(RemoteEvent);
+    _remoteExecParams params [["_targets", 0], ["_jip", _defJip], ["_call", false, [false]]];
+    [OOP_SPREF(callClassInstance), _callArgs, _targets, _jip] call FUNC(RemoteEvent);
 };
 
 FUNC(validateFieldType) = {
@@ -418,7 +422,9 @@ FUNC(pushBackNet) = {
 };
 
 FUNC(setVar) = {
-    params["_selfNamespace", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", _NIL(_instanceIndex)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    private _outerInstanceID = _NIL(_instanceIndex);
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+    params["_selfNamespace", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", _NIL(_outerInstanceID)], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
     // lookup instance in its own namespace (not missionNamespace), otherwise varsPrefix is lost for object instances
     private _instanceName = [_className, _selfNamespace, _NIL(_instanceID)] call FUNC(instanceName);
 	private _varsPrefix = _selfNamespace getVariable [format["%1_varsPrefix", _instanceName], ""];
@@ -429,7 +435,9 @@ FUNC(setVar) = {
 };
 
 FUNC(getVar) = {
-    params["_selfNamespace", "_className", "_name", ["_def", nil], ["_instanceID", _NIL(_instanceIndex)], ["_ADDON_PREFX", IF_NIL(_ADDON_PREFX, nil)]];
+    private _outerInstanceID = _NIL(_instanceIndex);
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+    params["_selfNamespace", "_className", "_name", ["_def", nil], ["_instanceID", _NIL(_outerInstanceID)], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
     private _instanceName = [_className, _selfNamespace, _NIL(_instanceID)] call FUNC(instanceName);
 	private _varsPrefix = _selfNamespace getVariable [format["%1_varsPrefix", _instanceName], ""];
     if (isNil "_instanceID") then {

@@ -1,4 +1,4 @@
-﻿#define OOP_FUNC(f) OOP_PREFX##_fnc_##f
+#define OOP_FUNC(f) OOP_PREFX##_fnc_##f
 #define OOP_PREF(s) OOP_PREFX##_##s
 #define OOP_SPREF(s) STR(OOP_PREF(s))
 
@@ -140,13 +140,13 @@
 #define SELFVAR(name) name = GET_SELFVAR(name); name
 
 // SIGNLETONS
-#define SOIVAR(obj,className,name,def) ([obj,className,STR(name),def,-1] call OOP_FUNC(getVar))
+#define SOIVAR(obj,className,name,def) ([obj,className,STR(name),def,-1,VAR_PREFIX] call OOP_FUNC(getVar))
 #define PR_SOIVAR_S(obj,className,name,def) private name = SOIVAR(obj,className,name,def);
 #define SOIVAR_S(obj,className,name,def) name = SOIVAR(obj,className,name,def);
 
 
 // NON SIGNLETONS
-#define OIVAR(obj,className,name,instanceId,def) ([obj,className,STR(name),def,instanceId] call OOP_FUNC(getVar))
+#define OIVAR(obj,className,name,instanceId,def) ([obj,className,STR(name),def,instanceId,VAR_PREFIX] call OOP_FUNC(getVar))
 #define PR_OIVAR_S(obj,className,name,instanceId,def) private name = OIVAR(obj,className,name,instanceId,def);
 #define OIVAR_S(obj,className,name,instanceId,def) name = OIVAR(obj,className,name,instanceId,def);
 
