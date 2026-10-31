@@ -249,16 +249,26 @@ FUNC(callClassInstance) = {
     private _parentCallerMethod = if (isNil "_currentCallerMethod") then {""} else {_currentCallerMethod};
     private _parentCallerNamespace = if (isNil "_currentCallerNamespace") then {""} else {_currentCallerNamespace};
     private _parentCallerSelfObj = if (isNil "_currentCallerSelfObj") then {""} else {_currentCallerSelfObj};
+    private _parentClassLoadedFields = if (isNil "_currentClassLoadedFields") then {[]} else {_currentClassLoadedFields};
     private _currentCalledClassName = _className;
     private _currentCallerMethodName = _methodName;
     private _currentCallerMethod = _method;
     private _currentCallerNamespace = _selfNamespace;
     private _currentCallerSelfObj = _selfObj;
-    private _doPrivateVars = _parentCallerClass isNotEqualTo _currentCalledClassName;
+    private _doPrivateVars = (_parentCallerClass isNotEqualTo _currentCalledClassName) || {_parentCallerNamespace isNotEqualTo _currentCallerNamespace};
     // --------------------------------------------
 
     private _methodSelfFieldsVars = (_methodSelfFields apply {_x#0});
-    private _methodSelfPrivateFieldsVars = if (_doPrivateVars) then {_methodSelfFieldsVars} else {_methodSelfFieldsVars select {isNil _x}};
+    private _methodSelfPrivateFieldsVars = if (_doPrivateVars) then {
+        _methodSelfFieldsVars
+    } else {
+        _methodSelfFieldsVars select {!(_x in _parentClassLoadedFields) || {isNil _x}}
+    };
+    private _currentClassLoadedFields = if (_doPrivateVars) then {
+        +_methodSelfFieldsVars
+    } else {
+        _parentClassLoadedFields + _methodSelfPrivateFieldsVars
+    };
     if (_methodSelfPrivateFieldsVars isEqualTo []) then {_methodSelfPrivateFieldsVars = ["_tempp"]};
 	private _methodSelfPrivateFieldsVars;
 	{
