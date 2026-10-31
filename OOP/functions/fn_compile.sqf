@@ -97,8 +97,6 @@ FUNC(newInstance) = {
     private _outerGlobalNamespace = IF_NIL(_globalNamespace, missionNamespace);
     params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)], ["_globalNamespace", _outerGlobalNamespace]];
 
-    ["NEW INST", _this] RLOG
-
     if (isNil "_namespace") then {
         _namespace = missionNamespace;
     };
