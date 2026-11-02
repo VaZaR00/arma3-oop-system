@@ -13,6 +13,10 @@ class Main
     class XEH_prep {
         file = FUNC_PATH(XEH_prep.sqf);
         DO_FUNC_RECOMPILE
+    };
+    class XEH_preStart {
+        file = FUNC_PATH(XEH_preStart.sqf);
+        DO_FUNC_RECOMPILE
         FUNC_PRE_START
     };
 };

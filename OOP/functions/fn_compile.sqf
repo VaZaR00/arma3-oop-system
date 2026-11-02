@@ -1,5 +1,8 @@
 #include "defines.hpp" 
 
+#ifndef FINAL
+#define CFUNC(f) FUNC(f)
+#endif
 
 
 #define INIT "Init"
@@ -24,7 +27,7 @@
 
 #define NIL_DEF _NIL(_def)
 
-FUNC(class) = {
+CFUNC(class) = {
     params ["_className", "_fields", "_methods", ["_selfNamespaceVar", ""], ["_isSignleton", true], ["_varsPrefix", ""], ["_globalNamespace", missionNamespace]];
 
     private _prefix = if (isNil "_ADDON_PREFX") then {SPREFX} else {_ADDON_PREFX};
@@ -92,7 +95,7 @@ FUNC(class) = {
     _classMap
 };
 
-FUNC(newInstance) = {
+CFUNC(newInstance) = {
     private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
     private _outerGlobalNamespace = IF_NIL(_globalNamespace, missionNamespace);
     params ["_className", ["_namespace", nil], ["_initArgs", []], ["_global", false], ["_def", nil], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)], ["_globalNamespace", _outerGlobalNamespace]];
@@ -190,7 +193,7 @@ FUNC(newInstance) = {
     if (isNil "_initResult") then {[_instanceId, NIL_DEF]} else {[_instanceId, _initResult]};
 };
 
-FUNC(callClassInstance) = {
+CFUNC(callClassInstance) = {
     private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
 	params["_instanceParams", "_namespace", ["_methodName", INIT], ["_thisArgs", []], ["_def", nil], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
 
@@ -325,7 +328,7 @@ FUNC(callClassInstance) = {
     _NIL(_result)
 };
 
-FUNC(remoteExecClassInstance) = {
+CFUNC(remoteExecClassInstance) = {
 	params[["_callArgs", []], ["_remoteExecParams", false]];
 
     if (_remoteExecParams isEqualTo false) exitWith {
@@ -343,7 +346,7 @@ FUNC(remoteExecClassInstance) = {
     [OOP_SPREF(callClassInstance), _callArgs, _targets, _jip] call FUNC(RemoteEvent);
 };
 
-FUNC(validateFieldType) = {
+CFUNC(validateFieldType) = {
 	params["_var", ["_types", []], ["_def", nil]];
 	if (isNil "_var") exitWith {nil};
 	if (_types isEqualTo []) exitWith {_var};
@@ -356,7 +359,7 @@ FUNC(validateFieldType) = {
 	_var
 };
 
-FUNC(addInstanceGlobal) = {
+CFUNC(addInstanceGlobal) = {
 	params["_instanceName", ["_instanceNamespace", missionNamespace], ["_globalNamespace", missionNamespace], ["_global", false]];
     private _lastId = _globalNamespace getVariable [_instanceName + "_lastId", 0];
     private _id = _lastId + 1;
@@ -367,21 +370,21 @@ FUNC(addInstanceGlobal) = {
     _globalInstanceName
 };
 
-FUNC(classRegistryName) = {
+CFUNC(classRegistryName) = {
 	params["_className"];
     private _prefix = VAR_PREFIX;
 	_prefix = if (_prefix == "") then {_prefix} else {_prefix + "_"};
     format[SPREF_ + "CLASS_%1%2", _prefix, _className];
 };
 
-FUNC(instanceName) = {
+CFUNC(instanceName) = {
 	params["_className", ["_namespace", missionNamespace], ["_instanceID", -1]];
     private _instance = _namespace getVariable _className;
     if !(isNil "_instance") exitWith {_className};
     ([_className] call FUNC(classRegistryName)) + "_instance" + (if (_instanceID > 0) then {"_" + (str _instanceID)} else {""});
 };
 
-FUNC(classExists) = {
+CFUNC(classExists) = {
 	params["_classname"];
     private _classRegistryName = [_className] call FUNC(classRegistryName);
 	private _class = missionNamespace getVariable _classRegistryName;
@@ -392,7 +395,7 @@ FUNC(classExists) = {
 	_class
 };
 
-FUNC(raiseException) = {
+CFUNC(raiseException) = {
     params [["_errorId", -1], ["_this", nil], ["_className", nil], ["_class", nil], ["_def", nil]];
     private _errorTypeData = switch (_errorId) do {
         case EXCEPTION_METHOD_DONT_EXISTS: {"EXCEPTION_METHOD_DONT_EXISTS"};
@@ -406,30 +409,30 @@ FUNC(raiseException) = {
 	_log
 };
 
-FUNC(RemoteExec) = {
+CFUNC(RemoteExec) = {
     _this call EFL_FUNC(remoteExec);
 };
 
-FUNC(RemoteEvent) = {
+CFUNC(RemoteEvent) = {
     _this call EFL_FUNC(remoteEvent);
 };
 
-FUNC(nonPrivateParams) = {
+CFUNC(nonPrivateParams) = {
     {
         _x params ["_name", ["_def", nil]];
         call compile (format["%1 = _thisArgs param [%2, if !(isNil '_def') then {_def}]", _name, _forEachIndex]);
     } forEach _this;
 };
 
-FUNC(pushBackGlobal) = {
+CFUNC(pushBackGlobal) = {
     _this call EFL_FUNC(pushBackGlobal);
 };
 
-FUNC(pushBackNet) = {
+CFUNC(pushBackNet) = {
     _this call EFL_FUNC(pushBackNet);
 };
 
-FUNC(setVar) = {
+CFUNC(setVar) = {
     private _outerInstanceID = _NIL(_instanceIndex);
     private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
     params["_selfNamespace", "_className", "_name", ["_val", nil], ["_target", false], ["_instanceID", _NIL(_outerInstanceID)], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
@@ -442,7 +445,7 @@ FUNC(setVar) = {
     _selfNamespace setVariable [VAR_NAME, _NIL(_val), _target];
 };
 
-FUNC(getVar) = {
+CFUNC(getVar) = {
     private _outerInstanceID = _NIL(_instanceIndex);
     private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
     params["_selfNamespace", "_className", "_name", ["_def", nil], ["_instanceID", _NIL(_outerInstanceID)], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
