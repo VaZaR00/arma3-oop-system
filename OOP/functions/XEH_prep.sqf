@@ -4,7 +4,7 @@
 #include "..\..\..\EFL_proj\EFL\functions\fnc_prepFunc.sqf"
 #endif
 #ifndef DEV
-#include "z\efl\addons\efl\functions\fnc_prepFunc.sqf"
+#include "\z\cfm\addons\cfm_efl\functions\fnc_prepFunc.sqf"
 #endif
 
 private _path = "";
@@ -17,5 +17,5 @@ private _path = "";
 #include "..\..\..\EFL_proj\EFL\functions\COMPILE_FINAL.sqf"
 #endif
 #ifndef DEV
-#include "z\efl\addons\efl\functions\COMPILE_FINAL.sqf"
+#include "\z\cfm\addons\cfm_efl\functions\COMPILE_FINAL.sqf"
 #endif

@@ -7,9 +7,9 @@
 #endif
 #endif
 #ifndef DEV
-#include "z\efl\addons\efl\includes\defines.hpp"
+#include "\z\cfm\addons\cfm_efl\includes\defines.hpp"
 #ifdef DIAG_NET
-#include "z\efl\addons\efl\includes\testsMacros.hpp"
+#include "\z\cfm\addons\cfm_efl\includes\testsMacros.hpp"
 #endif
 #endif
 
