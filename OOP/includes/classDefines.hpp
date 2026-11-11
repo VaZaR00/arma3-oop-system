@@ -23,6 +23,50 @@
 #define FIELD _fields pushBack
 
 
+/* 
+    Access Level Indicators
+    For semantic purposes, these are defined but do not have any effect on the code. They are used to indicate the intended access level of fields and methods in the class definition.
+*/
+#define PUBLIC 
+    // Public Access
+
+#define PRIVATE 
+    // Private Access
+
+#define LOCAL 
+/* 
+    Method: This Method is fully local (executed only local, has only local effect)
+     - if GE: this Method has Global Effect and should be executed only on one machine at a time.
+    Field: This Field IS NOT Synced between clients
+*/
+
+#define GLOBAL 
+/* 
+    Method: This Method should be executed Globaly on all clients at a time.
+    Field: This Field IS Synced between clients
+*/
+
+#define SERVER 
+/* 
+    Method: This Method should be executed ONLY on Server (same as SE)
+*/
+
+#define LE 
+    // Local Effect
+
+#define SE 
+    // Server Execution Only
+
+#define GE 
+    // Global Effect
+
+#define LA 
+    // Local Argument
+
+#define GA 
+    // Global Argument
+
+
 #define VOLATILE _fields pushBack true; FIELD
 
 
