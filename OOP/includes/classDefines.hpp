@@ -28,22 +28,36 @@
     For semantic purposes, these are defined but do not have any effect on the code. They are used to indicate the intended access level of fields and methods in the class definition.
 */
 #define PUBLIC 
-    // Public Access
+/* 
+    Public Access
+
+    Method: This Method is public and can be used in framework
+    Field: This Field is public and can be used in framework
+    Class: Fields and methods by default Public but can have own Access Level 
+*/
 
 #define PRIVATE 
-    // Private Access
+/* 
+    Private Access
+
+    Method: This Method is internal only
+    Field: This Field is internal only, Read Only
+    Class: This Class is internal only
+*/
 
 #define LOCAL 
 /* 
     Method: This Method is fully local (executed only local, has only local effect)
      - if GE: this Method has Global Effect and should be executed only on one machine at a time.
     Field: This Field IS NOT Synced between clients
+    Class: This Class is has no methods and fields with global affect
 */
 
 #define GLOBAL 
 /* 
     Method: This Method should be executed Globaly on all clients at a time.
     Field: This Field IS Synced between clients
+    Class: Fields and methods by default Global but can have own affect scope
 */
 
 #define SERVER 
