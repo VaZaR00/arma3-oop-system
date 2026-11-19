@@ -169,9 +169,9 @@
 #define SPAWN_NEW_INSTANCE(name) SPAWN_NEW_INSTANCE_GLOBAL(name, false)
 
 
-#define CALL_SELF call _self;
+#define CALL_SELF call _self
 
-#define SPAWN_SELF spawn _self;
+#define SPAWN_SELF spawn _self
 
 #define CALL_CLASS(name) call { \
     PREFIX_VAR \
