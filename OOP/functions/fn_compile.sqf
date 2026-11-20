@@ -25,13 +25,108 @@
 
 #define OOP_GLOBAL_NAMESPACE missionNamespace
 
+#define OOP_CACHE_ENABLED_VAR OOP_SPREF(cacheClasses)
+#define OOP_CLASSES_CACHE_VAR OOP_SPREF(classesCache)
+#ifdef FINAL
+#define OOP_CACHE_DEFAULT true
+#else
+#define OOP_CACHE_DEFAULT false
+#endif
+#define IS_OOP_CACHE_ENABLED ((parsingNamespace getVariable [OOP_CACHE_ENABLED_VAR, OOP_CACHE_DEFAULT]) isEqualTo true)
+
+if (isNil {parsingNamespace getVariable OOP_CACHE_ENABLED_VAR}) then {
+    parsingNamespace setVariable [OOP_CACHE_ENABLED_VAR, OOP_CACHE_DEFAULT];
+};
+
 #define NIL_DEF _NIL(_def)
+
+CFUNC(restoreCachedClass) = {
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+    params ["_className", ["_globalNamespace", OOP_GLOBAL_NAMESPACE], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
+
+    if !(IS_OOP_CACHE_ENABLED) exitWith {false};
+
+    private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+    if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) exitWith {false};
+
+    private _classRegistryName = [_className] call FUNC(classRegistryName);
+    private _cachedClass = _classesCache get _classRegistryName;
+    if ((isNil "_cachedClass") || {!(_cachedClass isEqualType createHashMap)} || {!("classname" in _cachedClass)}) exitWith {false};
+
+    private _existing = _globalNamespace getVariable _classRegistryName;
+    if (!(isNil "_existing") && {_existing isEqualType createHashMap} && {"classname" in _existing}) exitWith {
+        _existing
+    };
+
+    private _classMap = +_cachedClass;
+    private _methodsMap = _classMap getOrDefault ["methods", createHashMap];
+    {
+        _globalNamespace setVariable [_y select 0, _y select 1];
+    } forEach _methodsMap;
+    _globalNamespace setVariable [_classRegistryName, _classMap];
+
+    _classMap
+};
+
+CFUNC(restoreAllCachedClasses) = {
+    params [["_globalNamespace", OOP_GLOBAL_NAMESPACE]];
+
+    if !(IS_OOP_CACHE_ENABLED) exitWith {false};
+
+    private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+    if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) exitWith {false};
+
+    {
+        private _classRegistryName = _x;
+        private _cachedClass = _y;
+        if ((_cachedClass isEqualType createHashMap) && {"classname" in _cachedClass}) then {
+            private _existing = _globalNamespace getVariable _classRegistryName;
+            if ((isNil "_existing") || {!(_existing isEqualType createHashMap)} || {!("classname" in _existing)}) then {
+                private _classMap = +_cachedClass;
+                private _methodsMap = _classMap getOrDefault ["methods", createHashMap];
+                {
+                    _globalNamespace setVariable [_y select 0, _y select 1];
+                } forEach _methodsMap;
+                _globalNamespace setVariable [_classRegistryName, _classMap];
+            };
+        };
+    } forEach _classesCache;
+
+    true
+};
+
+CFUNC(clearClassesCache) = {
+    private _outerAddonPrefx = IF_NIL(_ADDON_PREFX, nil);
+    params [["_className", ""], ["_ADDON_PREFX", _NIL(_outerAddonPrefx)]];
+
+    if (_className isEqualTo "") exitWith {
+        parsingNamespace setVariable [OOP_CLASSES_CACHE_VAR, nil];
+        true
+    };
+
+    private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+    if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) exitWith {false};
+
+    if (_className in _classesCache) exitWith {
+        _classesCache deleteAt _className;
+        true
+    };
+
+    private _classRegistryName = [_className] call FUNC(classRegistryName);
+    if !(_classRegistryName in _classesCache) exitWith {false};
+
+    _classesCache deleteAt _classRegistryName;
+    true
+};
 
 CFUNC(class) = {
     params ["_className", "_fields", "_methods", ["_selfNamespaceVar", ""], ["_isSignleton", true], ["_varsPrefix", ""], ["_globalNamespace", missionNamespace]];
 
     private _prefix = if (isNil "_ADDON_PREFX") then {SPREFX} else {_ADDON_PREFX};
     private _classRegistryName = [_className] call FUNC(classRegistryName);
+
+    private _cachedClass = [_className, _globalNamespace] call FUNC(restoreCachedClass);
+    if !(_cachedClass isEqualTo false) exitWith {_cachedClass};
 
     private _fieldsCompiled = [];
     private _isVolatile = false;
@@ -92,6 +187,21 @@ CFUNC(class) = {
     _classMap set ["isSignleton", _isSignleton];
 
     _globalNamespace setVariable [_classRegistryName, _classMap];
+
+    if (IS_OOP_CACHE_ENABLED) then {
+        private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+        if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) then {
+            _classesCache = createHashMap;
+        };
+        _classesCache set [_classRegistryName, +_classMap];
+        parsingNamespace setVariable [OOP_CLASSES_CACHE_VAR, _classesCache];
+    } else {
+        private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+        if (!(isNil "_classesCache") && {_classesCache isEqualType createHashMap} && {_classRegistryName in _classesCache}) then {
+            _classesCache deleteAt _classRegistryName;
+        };
+    };
+
     _classMap
 };
 
@@ -388,7 +498,10 @@ CFUNC(classExists) = {
 	params["_classname"];
     private _classRegistryName = [_className] call FUNC(classRegistryName);
 	private _class = missionNamespace getVariable _classRegistryName;
-	if (isNil "_class") exitWith {false};
+	if (isNil "_class") then {
+		_class = [_className] call FUNC(restoreCachedClass);
+	};
+	if ((isNil "_class") || {_class isEqualTo false}) exitWith {false};
 	if !(_class isEqualType createHashMap) exitWith {false};
 	private _classParam = _class get "classname";
 	if (isNil "_classParam") exitWith {false};

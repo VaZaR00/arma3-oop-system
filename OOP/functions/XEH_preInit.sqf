@@ -9,4 +9,5 @@ call compileScript [FUNC_PATH(XEH_prep.sqf)];
 
 if (is3DEN) exitWith {};
 
+call FUNC(restoreAllCachedClasses);
 call FUNC(initCBAEvents);

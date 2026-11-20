@@ -8,13 +8,15 @@
 
 #define CLASS(name) call { \
     params[["_isSignleton", false]]; \
-    private _fields = []; \
     private _classname = STR(name); \
+    PREFIX_VAR \
+    private _oopCachedClass = [_classname] call OOP_FUNC(restoreCachedClass); \
+    if !(_oopCachedClass isEqualTo false) exitWith {_oopCachedClass}; \
+    private _fields = []; \
     private _methods = []; \
     private _selfNamespaceVar = ""; \
     private _varsPrefix = ""; \
-    _isSignleton = if (_isSignleton isEqualType false) then {_isSignleton} else {false}; \
-    PREFIX_VAR \
+    _isSignleton = if (_isSignleton isEqualType false) then {_isSignleton} else {false};
 
 
 #define SINGLETON_CLASS(name) true CLASS(name)
