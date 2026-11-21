@@ -6,12 +6,11 @@ class CfgPatches {
 		author = "Vazar";
 		requiredAddons[] = {
 			"cba_common",
-			"A3_Functions_F",
-			"CFM_EFL"
+			"A3_Functions_F"
 		};
 		units[] = {};
 		weapons[] = {};
-        skipWhenMissingDependencies = 1;
+		skipWhenMissingDependencies = 1;
 	};
 };
 
