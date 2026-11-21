@@ -1,8 +1,9 @@
 #include "defines.hpp"
 
 #ifndef FINAL
+if (isNil "_cFuncs") then {private _cFuncs = [];};
 #undef CFUNC
-#define CFUNC(f) FUNC(f)
+#define CFUNC(f) _cFuncs pushBack [STR(FUNC(f)), STR(FUNC(f))]; FUNC(f)
 #endif
 
 
@@ -10,6 +11,9 @@
 #define DEINIT "Deinit"
 
 #define IS_VALID_SELF_NAMESPACE(np) (np isEqualTypeAny [objNull, missionNamespace, grpNull, locationNull, displayNull, controlNull, teamMemberNull, taskNull])
+// Local-only namespaces (uiNamespace, parsingNamespace, profileNamespace, localNamespace, Display, Control) ONLY accept 2-arg setVariable [var, val]
+#define IS_LOCAL_ONLY_NAMESPACE(np) ((np isEqualType displayNull) || {np isEqualType controlNull} || {(np isEqualType missionNamespace) && {np isNotEqualTo missionNamespace}})
+#define OOP_SET_NS_VAR(ns, var, val, target) if (IS_LOCAL_ONLY_NAMESPACE(ns)) then {ns setVariable [var, val]} else {ns setVariable [var, val, target]}
 
 
 // EXCEPTIONS
@@ -74,17 +78,19 @@ CFUNC(restoreCachedClass) = {
 
 	if !(IS_OOP_CACHE_ENABLED) exitWith {false};
 
-	private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
-	if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) exitWith {false};
-
 	private _classRegistryName = [_className] call FUNC(classRegistryName);
-	private _cachedClass = _classesCache get _classRegistryName;
-	if ((isNil "_cachedClass") || {!(_cachedClass isEqualType createHashMap)} || {!("classname" in _cachedClass)}) exitWith {false};
-
 	private _existing = _globalNamespace getVariable _classRegistryName;
 	if (!(isNil "_existing") && {_existing isEqualType createHashMap} && {"classname" in _existing}) exitWith {
 		_existing
 	};
+
+	if (_globalNamespace isNotEqualTo missionNamespace) exitWith {false};
+
+	private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+	if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) exitWith {false};
+
+	private _cachedClass = _classesCache get _classRegistryName;
+	if ((isNil "_cachedClass") || {!(_cachedClass isEqualType createHashMap)} || {!("classname" in _cachedClass)}) exitWith {false};
 
 	private _classMap = +_cachedClass;
 	private _methodsMap = _classMap getOrDefault ["methods", createHashMap];
@@ -255,7 +261,7 @@ CFUNC(class) = {
 			];
 
 			_saveParts pushBack format [
-				"if (_oopToSaveVars getOrDefault ['%1', _oopSaveVars isEqualTo true]) then {_namespace setVariable ['%2' + _oopFieldSuffix, if (isNil '%1') then {nil} else {%1}, _oopToSaveVarsParams getOrDefault ['%1', _oopSetVarGlobal]];};",
+				"if (_oopToSaveVars getOrDefault ['%1', _oopSaveVars isEqualTo true]) then {if (_oopIsLocalOnlyNs) then {_namespace setVariable ['%2' + _oopFieldSuffix, if (isNil '%1') then {nil} else {%1}];} else {_namespace setVariable ['%2' + _oopFieldSuffix, if (isNil '%1') then {nil} else {%1}, _oopToSaveVarsParams getOrDefault ['%1', _oopSetVarGlobal]];};};",
 				_fName,
 				_fFull
 			];
@@ -279,6 +285,7 @@ CFUNC(class) = {
 	_classMap set ["methods", _methodsMap];
 	_classMap set ["classname", _classRegistryName];
 	_classMap set ["addonPrefix", _prefix];
+	_classMap set ["classNamespace", _globalNamespace];
 
 	if !(_selfNamespaceVar isEqualType "") then {
 		EXCEPTION(EXCEPTION_SELF_VAR_NOT_STRING);
@@ -295,17 +302,20 @@ CFUNC(class) = {
 
 	_globalNamespace setVariable [_classRegistryName, _classMap];
 
-	if (IS_OOP_CACHE_ENABLED) then {
-		private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
-		if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) then {
-			_classesCache = createHashMap;
-		};
-		_classesCache set [_classRegistryName, +_classMap];
-		parsingNamespace setVariable [OOP_CLASSES_CACHE_VAR, _classesCache];
-	} else {
-		private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
-		if (!(isNil "_classesCache") && {_classesCache isEqualType createHashMap} && {_classRegistryName in _classesCache}) then {
-			_classesCache deleteAt _classRegistryName;
+	// Only cache missionNamespace classes in parsingNamespace (parsingNamespace/uiNamespace classes persist natively!)
+	if (_globalNamespace isEqualTo missionNamespace) then {
+		if (IS_OOP_CACHE_ENABLED) then {
+			private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+			if ((isNil "_classesCache") || {!(_classesCache isEqualType createHashMap)}) then {
+				_classesCache = createHashMap;
+			};
+			_classesCache set [_classRegistryName, +_classMap];
+			parsingNamespace setVariable [OOP_CLASSES_CACHE_VAR, _classesCache];
+		} else {
+			private _classesCache = parsingNamespace getVariable OOP_CLASSES_CACHE_VAR;
+			if (!(isNil "_classesCache") && {_classesCache isEqualType createHashMap} && {_classRegistryName in _classesCache}) then {
+				_classesCache deleteAt _classRegistryName;
+			};
 		};
 	};
 
@@ -325,13 +335,15 @@ CFUNC(newInstance) = {
 		EXCEPTION(EXCEPTION_NON_NAMESPACE)
 	};
 
-	private _class = [_className, _globalNamespace] call FUNC(classExists);
+	([_className, _globalNamespace] call FUNC(findClass)) params ["_class", "_oopClassNs"];
 	if (_class isEqualTo false) exitWith {EXCEPTION(EXCEPTION_CLASS_DONT_EXISTS)};
 
 	private _classRegistryName = _class getOrDefaultCall ["classname", {EXCEPTION(EXCEPTION_NO_CLASSNAME); ""}];
 	private _isSingleton = _class getOrDefault ["isSingleton", _class getOrDefault ["isSignleton", true]];
 	private _prefix = _class getOrDefault ["addonPrefix", VAR_PREFIX];
 	private _isDevMode = (_class getOrDefault ["devMode", false]) || {IS_OOP_DEV_MODE};
+	private _isLocalOnlyNs = IS_LOCAL_ONLY_NAMESPACE(_namespace);
+	private _effectiveGlobal = if (_isLocalOnlyNs) then {false} else {_global};
 
 	private _instanceName = _classRegistryName + "_instance";
 	private _instanceId = -1;
@@ -340,29 +352,29 @@ CFUNC(newInstance) = {
 		private _classIds = +(_namespace getVariable [_classInstancesIdsVarName, []]);
 		_instanceId = (_classIds param [((count _classIds) - 1) max 0, 0]) + 1;
 		_instanceName = INSTANCE_NAME(_classRegistryName, _instanceId);
-		[_namespace, _classInstancesIdsVarName, _instanceId, true, false, _global, _global] call FUNC(pushBackNet);
+		[_namespace, _classInstancesIdsVarName, _instanceId, true, false, _effectiveGlobal, _effectiveGlobal] call FUNC(pushBackNet);
 	};
 
 	if (isNil {_namespace getVariable _instanceName}) then {
-		// Minimal single network write: compact metadata tuple only (never sends compiled code!)
-		_namespace setVariable [_instanceName, [_className, _instanceId, _prefix], _global];
+		// Minimal single write: compact metadata tuple only (auto 2-arg on local-only namespaces, never sends compiled code!)
+		OOP_SET_NS_VAR(_namespace, _instanceName, [_className I _instanceId I _prefix], _effectiveGlobal);
 
 		// DEV mode: keep all local introspection metadata & instance registries for debugging (0 extra network traffic!)
 		if (_isDevMode) then {
 			[_namespace, SPREF_ + "namespaceClassesInstances", _instanceName, true, false, false, false] call FUNC(pushBackNet);
-			private _globalId = [_instanceName, _namespace, _globalNamespace, false] call FUNC(addInstanceGlobal);
-			_namespace setVariable [_instanceName + "_instanceIndex", _instanceId, false];
-			_namespace setVariable [_instanceName + "_className", _className, false];
-			_namespace setVariable [_instanceName + "_classRegistryName", _classRegistryName, false];
-			_namespace setVariable [_instanceName + "_varsPrefix", _class getOrDefault ["varsPrefix", ""], false];
-			_namespace setVariable [_instanceName + "_selfNamespaceVar", _class getOrDefault ["selfvar", "_namespace"], false];
-			_namespace setVariable [_instanceName + "_methods", keys (_class getOrDefault ["methods", createHashMap]), false];
-			_namespace setVariable [_instanceName + "_fields", keys (_class getOrDefault ["fields", createHashMap]), false];
-			_namespace setVariable [_instanceName + "_globalId", _globalId, false];
+			private _globalId = [_instanceName, _namespace, _oopClassNs, false] call FUNC(addInstanceGlobal);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_instanceIndex", _instanceId, false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_className", _className, false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_classRegistryName", _classRegistryName, false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_varsPrefix", _class getOrDefault ["varsPrefix" I ""], false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_selfNamespaceVar", _class getOrDefault ["selfvar" I "_namespace"], false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_methods", keys (_class getOrDefault ["methods" I createHashMap]), false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_fields", keys (_class getOrDefault ["fields" I createHashMap]), false);
+			OOP_SET_NS_VAR(_namespace, _instanceName + "_globalId", _globalId, false);
 		};
 	};
 
-	private _initResult = [[_className, _instanceId], _namespace, INIT, _initArgs, NIL_DEF, _prefix, _globalNamespace] call FUNC(callClassInstance);
+	private _initResult = [[_className, _instanceId], _namespace, INIT, _initArgs, NIL_DEF, _prefix, _oopClassNs] call FUNC(callClassInstance);
 	if (_isSingleton) exitWith {if (isNil "_initResult") then {NIL_DEF} else {_initResult}};
 	if (isNil "_initResult") then {[_instanceId, NIL_DEF]} else {[_instanceId, _initResult]};
 };
@@ -401,44 +413,46 @@ CFUNC(deleteInstance) = {
 
 	if (_className isEqualTo "" || {isNil {_namespace getVariable _instanceName}}) exitWith {false};
 
-	private _class = [_className, _globalNamespace] call FUNC(classExists);
+	([_className, _globalNamespace] call FUNC(findClass)) params ["_class", "_oopClassNs"];
 	private _isSingleton = _instanceIndex < 0;
+	private _isLocalOnlyNs = IS_LOCAL_ONLY_NAMESPACE(_namespace);
+	private _effectiveGlobal = if (_isLocalOnlyNs) then {false} else {_global};
 
 	if !(_class isEqualTo false) then {
 		// Optionally invoke "Deinit" if defined on class
 		if (_callDeinit && {DEINIT in (_class getOrDefault ["methods", createHashMap])}) then {
-			[[_className, _instanceIndex], _namespace, DEINIT, _deinitArgs, nil, _ADDON_PREFX, _globalNamespace] call FUNC(callClassInstance);
+			[[_className, _instanceIndex], _namespace, DEINIT, _deinitArgs, nil, _ADDON_PREFX, _oopClassNs] call FUNC(callClassInstance);
 		};
 
 		// Clear all declared field variables for this instance
 		private _fieldPrefix = _class getOrDefault ["fieldPrefix", format ["%1%2", VAR_PREFIX, _class getOrDefault ["varsPrefix", ""]]];
 		private _fieldSuffix = if (_isSingleton) then {""} else {"_" + str _instanceIndex};
 		{
-			_namespace setVariable [_fieldPrefix + _x + _fieldSuffix, nil, _global];
+			OOP_SET_NS_VAR(_namespace, _fieldPrefix + _x + _fieldSuffix, nil, _effectiveGlobal);
 		} forEach (keys (_class getOrDefault ["fields", createHashMap]));
 	};
 
 	// Clear instance marker
-	_namespace setVariable [_instanceName, nil, _global];
+	OOP_SET_NS_VAR(_namespace, _instanceName, nil, _effectiveGlobal);
 
 	// Remove ID from multi-instance ID list
 	if !(_isSingleton) then {
 		private _classInstancesIdsVarName = format [SPREF_ + "class_%1_InstanceIds", _classRegistryName];
-		[_namespace, _classInstancesIdsVarName, _instanceIndex, _global, _global] call FUNC(removeFromArrayNet);
+		[_namespace, _classInstancesIdsVarName, _instanceIndex, _effectiveGlobal, _effectiveGlobal] call FUNC(removeFromArrayNet);
 	};
 
 	// Clean up local DEV introspection metadata if present
 	private _globalId = _namespace getVariable (_instanceName + "_globalId");
 	if !(isNil "_globalId") then {
-		_globalNamespace setVariable [_globalId + "_namespace", nil, false];
-		[_globalNamespace, SPREF_ + "CLASS_instances", _globalId, false, false] call FUNC(removeFromArrayNet);
+		OOP_SET_NS_VAR(_oopClassNs, _globalId + "_namespace", nil, false);
+		[_oopClassNs, SPREF_ + "CLASS_instances", _globalId, false, false] call FUNC(removeFromArrayNet);
 	};
 	if !(isNil {_namespace getVariable (SPREF_ + "namespaceClassesInstances")}) then {
 		[_namespace, SPREF_ + "namespaceClassesInstances", _instanceName, false, false] call FUNC(removeFromArrayNet);
 	};
 	{
 		if !(isNil {_namespace getVariable (_instanceName + _x)}) then {
-			_namespace setVariable [_instanceName + _x, nil, false];
+			OOP_SET_NS_VAR(_namespace, _instanceName + _x, nil, false);
 		};
 	} forEach ["_instanceIndex", "_className", "_classRegistryName", "_varsPrefix", "_selfNamespaceVar", "_methods", "_fields", "_globalId"];
 
@@ -488,17 +502,15 @@ CFUNC(callClassInstance) = {
 		};
 	};
 
-	// -------------- class & method lookup --------------
-	private _class = _globalNamespace getVariable _classRegistryName;
-	if (isNil "_class") then {
-		_class = [_className, _globalNamespace] call FUNC(restoreCachedClass);
-	};
-	if (isNil "_class" || {_class isEqualTo false} || {!(_class isEqualType createHashMap)}) exitWith {
+	// -------------- class & method lookup (auto-fallback: preferred -> parsingNamespace -> uiNamespace -> missionNamespace) --------------
+	([_className, _globalNamespace] call FUNC(findClass)) params ["_class", "_oopClassNs"];
+	if (_class isEqualTo false) exitWith {
 		EXCEPTION(EXCEPTION_CLASS_DONT_EXISTS)
 	};
 
 	private _oopFieldPrefix = _class getOrDefault ["fieldPrefix", format ["%1%2", VAR_PREFIX, _class getOrDefault ["varsPrefix", ""]]];
 	private _oopFieldSuffix = if (_instanceIndex < 0) then {""} else {"_" + str _instanceIndex};
+	private _oopIsLocalOnlyNs = IS_LOCAL_ONLY_NAMESPACE(_namespace);
 
 	private _oopMethodsMap = _class getOrDefault ["methods", createHashMap];
 	private _oopMethodEntry = _oopMethodsMap get _methodName;
@@ -512,7 +524,7 @@ CFUNC(callClassInstance) = {
 	};
 
 	_oopMethodEntry params ["_oopMethodVarName", "_oopMethodFallback", "_oopMethodSelfFields", "_oopMethodFieldNames", "_oopMethodFieldDefs", "_oopLoadCode", "_oopSaveCode"];
-	private _method = _globalNamespace getVariable [_oopMethodVarName, _oopMethodFallback];
+	private _method = _oopClassNs getVariable [_oopMethodVarName, _oopMethodFallback];
 	if (isNil "_method" || {!(_method isEqualType {})}) exitWith {
 		EXCEPTION(EXCEPTION_METHOD_FUNC_DONT_EXISTS)
 	};
@@ -629,12 +641,13 @@ CFUNC(validateFieldType) = {
 
 CFUNC(addInstanceGlobal) = {
 	params ["_instanceName", ["_instanceNamespace", missionNamespace], ["_globalNamespace", OOP_GLOBAL_NAMESPACE], ["_global", false]];
+	private _effGlobal = if (IS_LOCAL_ONLY_NAMESPACE(_globalNamespace)) then {false} else {_global};
 	private _lastId = _globalNamespace getVariable [_instanceName + "_lastId", 0];
 	private _id = _lastId + 1;
 	private _globalInstanceName = format ["%1_%2", _instanceName, _id];
-	_globalNamespace setVariable [_instanceName + "_lastId", _id, _global];
-	_globalNamespace setVariable [_globalInstanceName + "_namespace", _instanceNamespace, _global];
-	[_globalNamespace, SPREF_ + "CLASS_instances", _globalInstanceName, true, false, _global, _global] call FUNC(pushBackNet);
+	OOP_SET_NS_VAR(_globalNamespace, _instanceName + "_lastId", _id, _effGlobal);
+	OOP_SET_NS_VAR(_globalNamespace, _globalInstanceName + "_namespace", _instanceNamespace, _effGlobal);
+	[_globalNamespace, SPREF_ + "CLASS_instances", _globalInstanceName, true, false, _effGlobal, _effGlobal] call FUNC(pushBackNet);
 	_globalInstanceName
 };
 
@@ -652,18 +665,35 @@ CFUNC(instanceName) = {
 	([_className] call FUNC(classRegistryName)) + "_instance" + (if (_instanceID > 0) then {"_" + (str _instanceID)} else {""});
 };
 
+// Finds class in preferred namespace (with parsingNamespace cache restore if missionNamespace), then falls back to parsingNamespace -> uiNamespace -> missionNamespace
+CFUNC(findClass) = {
+	params ["_className", ["_preferredNamespace", OOP_GLOBAL_NAMESPACE]];
+	private _classRegistryName = [_className] call FUNC(classRegistryName);
+
+	private _class = _preferredNamespace getVariable _classRegistryName;
+	if (!(isNil "_class") && {_class isEqualType createHashMap} && {"classname" in _class}) exitWith {[_class, _preferredNamespace]};
+
+	if (_preferredNamespace isEqualTo missionNamespace) then {
+		_class = [_className, missionNamespace] call FUNC(restoreCachedClass);
+		if (!(isNil "_class") && {!(_class isEqualTo false)} && {_class isEqualType createHashMap} && {"classname" in _class}) exitWith {[_class, missionNamespace]};
+	};
+
+	private _found = [false, _preferredNamespace];
+	{
+		if (_x isNotEqualTo _preferredNamespace) then {
+			private _c = _x getVariable _classRegistryName;
+			if (!(isNil "_c") && {_c isEqualType createHashMap} && {"classname" in _c}) exitWith {
+				_found = [_c, _x];
+			};
+		};
+	} forEach [parsingNamespace, uiNamespace, missionNamespace];
+
+	_found
+};
+
 CFUNC(classExists) = {
 	params ["_className", ["_globalNamespace", OOP_GLOBAL_NAMESPACE]];
-	private _classRegistryName = [_className] call FUNC(classRegistryName);
-	private _class = _globalNamespace getVariable _classRegistryName;
-	if (isNil "_class") then {
-		_class = [_className, _globalNamespace] call FUNC(restoreCachedClass);
-	};
-	if ((isNil "_class") || {_class isEqualTo false}) exitWith {false};
-	if !(_class isEqualType createHashMap) exitWith {false};
-	private _classParam = _class get "classname";
-	if (isNil "_classParam") exitWith {false};
-	_class
+	([_className, _globalNamespace] call FUNC(findClass)) select 0
 };
 
 CFUNC(raiseException) = {
@@ -732,10 +762,10 @@ CFUNC(nonPrivateParams) = {
 	};
 
 	private _oo_cacheKey = _oo_varNames joinString ",";
-	private _oo_cache = missionNamespace getVariable OOP_NP_PARAMS_CACHE_VAR;
+	private _oo_cache = parsingNamespace getVariable OOP_NP_PARAMS_CACHE_VAR;
 	if (isNil "_oo_cache") then {
 		_oo_cache = createHashMap;
-		missionNamespace setVariable [OOP_NP_PARAMS_CACHE_VAR, _oo_cache];
+		parsingNamespace setVariable [OOP_NP_PARAMS_CACHE_VAR, _oo_cache];
 	};
 
 	private _oo_code = _oo_cache get _oo_cacheKey;
@@ -759,7 +789,7 @@ CFUNC(nonPrivateParams) = {
 CFUNC(pushBackNet) = {
 	params ["_namespace", "_varname", "_element", ["_unique", true], ["_callEH", false], ["_target", false], ["_jip", true]];
 	if (isNil "_namespace" || {isNil "_varname"} || {isNil "_element"}) exitWith {};
-	if (_target in [false, clientOwner]) exitWith {
+	if (_target in [false, clientOwner] || {IS_LOCAL_ONLY_NAMESPACE(_namespace)}) exitWith {
 		private _array = _namespace getVariable [_varname, []];
 		if !(_array isEqualType []) then {_array = []};
 		if (_unique) then {
@@ -780,7 +810,7 @@ CFUNC(pushBackGlobal) = {
 CFUNC(removeFromArrayNet) = {
 	params ["_namespace", "_varname", "_element", ["_target", false], ["_jip", true]];
 	if (isNil "_namespace" || {isNil "_varname"} || {isNil "_element"}) exitWith {};
-	if (_target in [false, clientOwner]) exitWith {
+	if (_target in [false, clientOwner] || {IS_LOCAL_ONLY_NAMESPACE(_namespace)}) exitWith {
 		private _array = _namespace getVariable [_varname, []];
 		if !(_array isEqualType []) exitWith {};
 		_namespace setVariable [_varname, _array - [_element]];
@@ -811,7 +841,7 @@ CFUNC(setVar) = {
 		VAR_PREFIX
 	};
 	private _fieldSuffix = if (_instanceID < 0) then {""} else {"_" + str _instanceID};
-	_selfNamespace setVariable [_fieldPrefix + _name + _fieldSuffix, _NIL(_val), _target];
+	OOP_SET_NS_VAR(_selfNamespace, _fieldPrefix + _name + _fieldSuffix, _NIL(_val), _target);
 };
 
 CFUNC(getVar) = {

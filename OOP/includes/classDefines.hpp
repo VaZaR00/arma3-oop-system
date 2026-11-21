@@ -30,10 +30,10 @@
 
 
 #define CLASS(name) call { \
-    params [["_isSingleton", false]]; \
+    params [["_isSingleton", false], ["_classGlobalNamespace", missionNamespace]]; \
     private _classname = STR(name); \
     PREFIX_VAR \
-    private _oopCachedClass = [_classname] call OOP_FUNC(restoreCachedClass); \
+    private _oopCachedClass = [_classname, _classGlobalNamespace] call OOP_FUNC(restoreCachedClass); \
     if !(_oopCachedClass isEqualTo false) exitWith {_oopCachedClass}; \
     private _fields = []; \
     private _methods = []; \
@@ -43,6 +43,10 @@
 
 
 #define SINGLETON_CLASS(name) true CLASS(name)
+#define PARS_CLASS(name) [false, parsingNamespace] CLASS(name)
+#define PARS_SINGLETON_CLASS(name) [true, parsingNamespace] CLASS(name)
+#define UI_CLASS(name) [false, uiNamespace] CLASS(name)
+#define UI_SINGLETON_CLASS(name) [true, uiNamespace] CLASS(name)
 
 
 #define FIELD _fields pushBack
@@ -119,12 +123,15 @@
 #define SET_VARS_PREFIX(prefix) _varsPrefix = prefix;
 
 
+#define SET_CLASS_NAMESPACE(ns) _classGlobalNamespace = ns;
+
+
 #define METHOD(name) \
     _methods pushBack name; _methods pushBack
 
 
 #define CLASS_END \
-    [_classname, _fields, _methods, _selfNamespaceVar, _isSingleton, _varsPrefix] call OOP_FUNC(class) };
+    [_classname, _fields, _methods, _selfNamespaceVar, _isSingleton, _varsPrefix, _classGlobalNamespace] call OOP_FUNC(class) };
 
 
 // Singleton calls
@@ -196,6 +203,24 @@
 #define SPAWN_NEW_INSTANCE(name) SPAWN_NEW_INSTANCE_GLOBAL(name, false)
 
 
+// Persistent namespace singletons (parsingNamespace / uiNamespace — safe from XEH_preStart!)
+#define NEW_PARS_INSTANCE(name) call { \
+    IF_NIL(_this, []) params [["_initArgs", []], ["_def", nil]]; \
+    [parsingNamespace, _initArgs, NIL_DEF, parsingNamespace] NEW_OBJINSTANCE_GLOBAL(name, false) \
+}
+#define CALL_PARS_CLASS(name) CALL_OBJCLASS(name, parsingNamespace)
+#define SPAWN_PARS_CLASS(name) SPAWN_OBJCLASS(name, parsingNamespace)
+#define DELETE_PARS_INSTANCE(name) DELETE_OBJCLASS(name, parsingNamespace)
+
+#define NEW_UI_INSTANCE(name) call { \
+    IF_NIL(_this, []) params [["_initArgs", []], ["_def", nil]]; \
+    [uiNamespace, _initArgs, NIL_DEF, uiNamespace] NEW_OBJINSTANCE_GLOBAL(name, false) \
+}
+#define CALL_UI_CLASS(name) CALL_OBJCLASS(name, uiNamespace)
+#define SPAWN_UI_CLASS(name) SPAWN_OBJCLASS(name, uiNamespace)
+#define DELETE_UI_INSTANCE(name) DELETE_OBJCLASS(name, uiNamespace)
+
+
 // Destruction / Cleanup
 #define DELETE_OBJCLASS_GLOBAL(name, obj, global) call { \
     PREFIX_VAR \
@@ -218,12 +243,12 @@
 // Self & global singleton calls
 #define CALL_SELF call { \
     _this params [["_method", ""], ["_args", nil], ["_def", nil]]; \
-    [[_className, _instanceIndex], _selfNamespace, _method, _NIL(_args), NIL_DEF, _ADDON_PREFX] call OOP_FUNC(callClassInstance) \
+    [[_className, _instanceIndex], _selfNamespace, _method, _NIL(_args), NIL_DEF, _ADDON_PREFX, _oopClassNs] call OOP_FUNC(callClassInstance) \
 }
 
 #define SPAWN_SELF call { \
     _this params [["_method", ""], ["_args", nil], ["_def", nil]]; \
-    [[_className, _instanceIndex], _selfNamespace, _method, _NIL(_args), NIL_DEF, _ADDON_PREFX] spawn OOP_FUNC(callClassInstance) \
+    [[_className, _instanceIndex], _selfNamespace, _method, _NIL(_args), NIL_DEF, _ADDON_PREFX, _oopClassNs] spawn OOP_FUNC(callClassInstance) \
 }
 
 #define CALL_CLASS(name) call { \
@@ -242,13 +267,13 @@
 #define INSTANCE_NAME(name, id) (format["%1_instance_%2", name, id])
 
 
-// Direct in-method field setters & getters
+// Direct in-method field setters & getters (auto 2-arg on local-only namespaces like uiNamespace/parsingNamespace/Display/Control)
 #define GLOBAL_SETTER _oopSetVarGlobal = true;
 #define LOCAL_SETTER _oopSetVarGlobal = false;
-#define SET_SELFVART(name, target) _selfNamespace setVariable [_oopFieldPrefix + STR(name) + _oopFieldSuffix, _NIL(name), target];
+#define SET_SELFVART(name, target) if (_oopIsLocalOnlyNs) then {_selfNamespace setVariable [_oopFieldPrefix + STR(name) + _oopFieldSuffix, _NIL(name)]} else {_selfNamespace setVariable [_oopFieldPrefix + STR(name) + _oopFieldSuffix, _NIL(name), target]};
 #define SET_SELFVAR(name) SET_SELFVART(name, _oopSetVarGlobal)
 #define SET_SELFVARG(name) SET_SELFVART(name, true)
-#define SET_SELFSVART(name, target) _selfNamespace setVariable [_oopFieldPrefix + (name) + _oopFieldSuffix, (if (isNil (name)) then {nil} else {call compile (name)}), target];
+#define SET_SELFSVART(name, target) if (_oopIsLocalOnlyNs) then {_selfNamespace setVariable [_oopFieldPrefix + (name) + _oopFieldSuffix, (if (isNil (name)) then {nil} else {call compile (name)})]} else {_selfNamespace setVariable [_oopFieldPrefix + (name) + _oopFieldSuffix, (if (isNil (name)) then {nil} else {call compile (name)}), target]};
 #define SET_SELFSVAR(name) SET_SELFSVART(name, _oopSetVarGlobal)
 #define SET_SELFSVARG(name) SET_SELFSVART(name, true)
 

@@ -38,6 +38,7 @@ private _compileFunc = {
 
 	missionNamespace setVariable [_funcName, _compiled];
 	uiNamespace setVariable [_funcName, _compiled];
+	parsingNamespace setVariable [_funcName, _compiled];
 };
 
 #ifdef DEV
@@ -51,8 +52,22 @@ PREP(compile);
 #ifdef FINAL
 {
 	_x params ["_funcVar", "_funcName"];
+	private _isCompiled = uiNamespace getVariable _funcVar;
+	if (!(isNil "_isCompiled") && {(_isCompiled isEqualType {})}) then {
+		if (isFinal _isCompiled) then {
+			continue;
+		};
+	};
 	private _compiled = COMPILE_C (call COMPILE_C _funcVar);
 	missionNamespace setVariable [_funcName, _compiled];
 	uiNamespace setVariable [_funcName, _compiled];
+	parsingNamespace setVariable [_funcName, _compiled];
+} forEach _cFuncs;
+#else
+{
+	_x params ["_funcVar", "_funcName"];
+	private _fn = missionNamespace getVariable _funcName;
+	uiNamespace setVariable [_funcName, _fn];
+	parsingNamespace setVariable [_funcName, _fn];
 } forEach _cFuncs;
 #endif
